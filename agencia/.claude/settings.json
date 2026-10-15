@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./**/credenciales/**)",
+      "mcp__claude_ai_META_Freelan__ads_activate_entity",
+      "mcp__claude_ai_META_Freelan__ads_creative_update",
+      "mcp__claude_ai_META_Freelan__ads_creative_delete",
+      "mcp__claude_ai_META_Freelan__ads_boost_ig_post",
+      "mcp__claude_ai_META_Freelan__ads_update_custom_audience",
+      "mcp__claude_ai_META_Freelan__ads_update_custom_audience_users",
+      "mcp__claude_ai_META_Freelan__ads_delete_custom_audience",
+      "mcp__claude_ai_META_Freelan__ads_experiment_abtest_update_test",
+      "mcp__claude_ai_META_Freelan__ads_delete_local_ad_image",
+      "mcp__claude_ai_META_Freelan__ads_pixel_event_update",
+      "mcp__claude_ai_META_Freelan__ads_pixel_event_delete",
+      "mcp__claude_ai_META_Freelan__ads_pixel_parameter_update",
+      "mcp__claude_ai_META_Freelan__ads_pixel_parameter_delete",
+      "mcp__claude_ai_META_Freelan__ads_catalog_update_catalog",
+      "mcp__claude_ai_META_Freelan__ads_catalog_update_product",
+      "mcp__claude_ai_META_Freelan__ads_catalog_update_product_feed",
+      "mcp__claude_ai_META_Freelan__ads_catalog_update_product_set",
+      "mcp__claude_ai_META_Freelan__ads_catalog_delete_product",
+      "mcp__claude_ai_META_Freelan__ads_catalog_product_feed_delete",
+      "mcp__claude_ai_META_Freelan__ads_catalog_product_feed_delete_rule",
+      "mcp__claude_ai_META_Freelan__ads_catalog_product_set_delete",
+      "mcp__claude_ai_META_Freelan__ads_catalog_event_source_disconnect"
+    ],
+    "ask": [
+      "mcp__claude_ai_META_Freelan__ads_create_campaign",
+      "mcp__claude_ai_META_Freelan__ads_create_ad_set",
+      "mcp__claude_ai_META_Freelan__ads_create_creative",
+      "mcp__claude_ai_META_Freelan__ads_create_ad",
+      "mcp__claude_ai_META_Freelan__ads_update_entity",
+      "mcp__claude_ai_META_Freelan__ads_create_custom_audience",
+      "Bash(python3 .claude/skills/editar-campana/scripts/asignar_creativo.py:*)"
+    ]
+  }
+}

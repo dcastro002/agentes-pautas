@@ -1,0 +1,7 @@
+.env
+datos/
+__pycache__/
+*.pyc
+.venv/
+agencia/_Entregables/*
+!agencia/_Entregables/README.md

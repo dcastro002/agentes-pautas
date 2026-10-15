@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Oficina de agentes</title>
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{--noche:#110F28;--negro:#080612;--tarjeta:#1A1735;--borde:#2B2752;--texto:#FFFFFF;--suave:#CFCFD5;
+        --tenue:#8E8AAE;--accion:#294471;--bien:#5CC98A;--atencion:#F2B84B;--mal:#EF6B6B;
+        --acento:linear-gradient(90deg,#D477C8,#B47FED 55%,#8F8AF2)}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--negro);color:var(--texto);font-family:Lato,Arial,sans-serif}
+  header{padding:24px 32px 16px;border-bottom:1px solid var(--borde);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  h1{margin:0;font-size:26px;font-weight:900}
+  h1 span{background:var(--acento);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--suave);margin-top:4px;font-size:14px}
+  .badge{align-self:center;border:1px solid var(--borde);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:700;letter-spacing:.06em}
+  .badge.prueba{color:var(--atencion);border-color:var(--atencion)}
+  main{padding:24px 32px;display:grid;gap:20px;max-width:1400px;margin:0 auto}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+  .kpi,.panel{background:var(--tarjeta);border:1px solid var(--borde);border-radius:10px}
+  .kpi{padding:18px}
+  .kpi .v{font-size:32px;font-weight:900}
+  .kpi .l{color:var(--suave);font-size:13px;margin-top:4px}
+  .kpi .n{color:var(--tenue);font-size:12px;margin-top:6px}
+  .fila{display:grid;grid-template-columns:2fr 1fr;gap:20px}
+  @media (max-width:900px){.fila{grid-template-columns:1fr}main,header{padding:16px}}
+  .panel{padding:18px}
+  .panel h2{margin:0 0 4px;font-size:16px}
+  .panel .d{color:var(--tenue);font-size:12px;margin-bottom:14px}
+  .equipo{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+  .agente{border:1px solid var(--borde);border-radius:10px;padding:14px;background:var(--noche)}
+  .agente.activo{border-color:#B47FED;box-shadow:0 0 0 1px #B47FED inset}
+  .av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:900;background:var(--accion);margin-bottom:10px}
+  .agente.activo .av{background:var(--acento)}
+  .agente b{display:block;font-size:14px}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;margin-top:6px;color:var(--suave)}
+  .chip::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--tenue)}
+  .chip.trabajando::before{background:var(--bien)}
+  .chip.esperando::before{background:var(--atencion)}
+  .agente .q{color:var(--tenue);font-size:12px;margin-top:6px;min-height:16px}
+  ul{list-style:none;margin:0;padding:0}
+  li{padding:10px 0;border-bottom:1px solid var(--borde);font-size:13px}
+  li:last-child{border-bottom:0}
+  .t{color:var(--tenue);font-size:12px;margin-right:6px}
+  .quien{font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{color:var(--tenue);font-weight:700;text-align:left;padding:8px;border-bottom:1px solid var(--borde)}
+  td{padding:8px;border-bottom:1px solid var(--borde);vertical-align:top}
+  td.n{text-align:right;font-variant-numeric:tabular-nums}
+  .scroll{overflow-x:auto}
+  .vacio{color:var(--tenue);font-size:13px}
+  .ok{color:var(--bien)} .warn{color:var(--atencion)} .bad{color:var(--mal)}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>Oficina de <span>agentes</span></h1><div class="sub" id="resumen">Cargando…</div></div>
+  <div class="badge" id="modo">—</div>
+</header>
+<main>
+  <section class="kpis">
+    <div class="kpi"><div class="v" id="k-activos">–</div><div class="l">Agentes trabajando</div></div>
+    <div class="kpi"><div class="v" id="k-espera">–</div><div class="l">Esperan aprobación</div></div>
+    <div class="kpi"><div class="v" id="k-hoy">–</div><div class="l">Costo de hoy (USD)</div><div class="n" id="k-hoy-t"></div></div>
+    <div class="kpi"><div class="v" id="k-mes">–</div><div class="l">Costo del mes (USD)</div><div class="n" id="k-mes-t"></div></div>
+  </section>
+  <div class="fila">
+    <section class="panel"><h2>El equipo</h2><div class="d">Cada agente muestra lo que está haciendo ahora.</div><div class="equipo" id="equipo"></div></section>
+    <section class="panel"><h2>Esperan aprobación</h2><div class="d">Se aprueban con el botón en el hilo de Slack.</div><ul id="espera"></ul></section>
+  </div>
+  <div class="fila">
+    <section class="panel"><h2>Actividad</h2><div class="d">Lo último que hicieron los agentes.</div><ul id="actividad"></ul></section>
+    <section class="panel"><h2>Conversaciones</h2><div class="d">Pedidos recientes y su estado.</div><ul id="convs"></ul></section>
+  </div>
+  <section class="panel"><h2>Ejecuciones y consumo</h2><div class="d">Tokens y costo estimado por ejecución del agente.</div>
+    <div class="scroll"><table><thead><tr><th>Inicio</th><th>Pedido</th><th>Estado</th><th class="n">Costo USD</th><th class="n">Entrada</th><th class="n">Salida</th><th class="n">Caché lectura</th><th class="n">Turnos</th></tr></thead><tbody id="ejecuciones"></tbody></table></div>
+  </section>
+</main>
+<script>
+const AGENTES=[["estratega","Estratega","ES"],["redactor","Redactor","RE"],["disenador","Diseñador","DI"],
+  ["guardian-marca","Guardián de marca","GM"],["operador-pauta","Operador de pauta","OP"],
+  ["gestor-solicitudes","Gestor de solicitudes","GS"],["analista","Analista","AN"]];
+const token=new URLSearchParams(location.search).get("token");
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const hora=s=>s?new Date(s+(s.endsWith("Z")?"":"Z")).toLocaleString("es-MX",{hour:"2-digit",minute:"2-digit",day:"2-digit",month:"short"}):"";
+const num=n=>Number(n||0).toLocaleString("es-MX");
+const usd=n=>"$"+Number(n||0).toFixed(2);
+const clase={terminado:"ok",trabajando:"ok",esperando_aprobacion:"warn",error:"bad"};
+async function cargar(){
+  const r=await fetch(`/api/estado?token=${encodeURIComponent(token)}`);
+  if(!r.ok){document.getElementById("resumen").textContent="Sin acceso.";return}
+  const d=await r.json();
+  const modo=document.getElementById("modo");
+  modo.textContent=d.modo_prueba?"MODO PRUEBA · no escribe en Meta":"PRODUCCIÓN";
+  modo.className="badge"+(d.modo_prueba?" prueba":"");
+  const titulos=Object.fromEntries(d.conversaciones.map(c=>[c.id,c.titulo]));
+  const activas=new Set(d.conversaciones.filter(c=>c.estado==="trabajando").map(c=>c.id));
+  const espera=d.conversaciones.filter(c=>c.estado==="esperando_aprobacion");
+  const ultimo={};
+  for(const e of d.eventos){ if(activas.has(e.conversacion_id)&&!ultimo[e.agente]) ultimo[e.agente]=e; }
+  let trabajando=0;
+  document.getElementById("equipo").innerHTML=AGENTES.map(([id,nombre,ini])=>{
+    const e=ultimo[id]; if(e) trabajando++;
+    const estado=e?"trabajando":"libre";
+    const que=e?(e.detalle||e.tipo):"";
+    return `<div class="agente ${e?"activo":""}"><div class="av">${ini}</div><b>${nombre}</b>
+      <div class="chip ${estado}">${e?"Trabajando":"Libre"}</div><div class="q">${esc(que).slice(0,80)}</div></div>`}).join("");
+  document.getElementById("k-activos").textContent=trabajando;
+  document.getElementById("k-espera").textContent=espera.length;
+  document.getElementById("k-hoy").textContent=usd(d.costo_hoy_usd);
+  document.getElementById("k-mes").textContent=usd(d.costo_mes_usd);
+  const tk=t=>`${num(t.entrada)} entrada · ${num(t.salida)} salida · ${num(t.cache_lectura)} caché`;
+  document.getElementById("k-hoy-t").textContent=tk(d.tokens_hoy);
+  document.getElementById("k-mes-t").textContent=tk(d.tokens_mes);
+  document.getElementById("espera").innerHTML=espera.length?espera.map(c=>`<li><span class="t">${hora(c.actualizado)}</span>${esc(c.titulo)}</li>`).join(""):'<li class="vacio">Nada pendiente.</li>';
+  document.getElementById("actividad").innerHTML=d.eventos.slice(0,25).map(e=>`<li><span class="t">${hora(e.ts)}</span><span class="quien">${esc(e.agente)}</span> · ${esc(e.tipo)}${e.detalle?` — ${esc(e.detalle).slice(0,140)}`:""}</li>`).join("")||'<li class="vacio">Sin actividad todavía.</li>';
+  document.getElementById("convs").innerHTML=d.conversaciones.slice(0,15).map(c=>`<li><span class="t">${hora(c.actualizado)}</span><span class="${clase[c.estado]||""}">${esc(c.estado.replace("_"," "))}</span> · ${esc(c.titulo)}</li>`).join("")||'<li class="vacio">Sin pedidos todavía.</li>';
+  document.getElementById("ejecuciones").innerHTML=d.ejecuciones.map(x=>`<tr><td>${hora(x.inicio)}</td><td>${esc((titulos[x.conversacion_id]||x.conversacion_id||"")).slice(0,70)}</td><td class="${clase[x.estado]||""}">${esc(String(x.estado).replace("_"," "))}</td><td class="n">${Number(x.costo_usd||0).toFixed(3)}</td><td class="n">${num(x.input_tokens)}</td><td class="n">${num(x.output_tokens)}</td><td class="n">${num(x.cache_read_tokens)}</td><td class="n">${num(x.turnos)}</td></tr>`).join("");
+  document.getElementById("resumen").textContent=`Actualizado ${hora(d.generado)} · ${d.conversaciones.length} pedidos recientes`;
+}
+cargar(); setInterval(cargar,10000);
+</script>
+</body>
+</html>

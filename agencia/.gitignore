@@ -1,0 +1,14 @@
+# Credenciales y configuración local
+.env
+.env.*
+.mcp.json
+**/credenciales/
+.claude/settings.local.json
+
+# Sistema
+.DS_Store
+.vscode/
+
+# Datos de clientes con información personal (exportaciones de CRM, listas de contactos)
+**/exportaciones/
+*.csv
