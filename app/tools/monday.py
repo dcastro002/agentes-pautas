@@ -51,6 +51,21 @@ def valores_prohibidos(valores: dict) -> str | None:
     return None
 
 
+def normalizar_valores(valores: dict) -> dict:
+    """Corrige formatos que Monday rechaza o ignora en silencio (link como texto plano, notas largas)."""
+    salida = {}
+    for col, val in valores.items():
+        if col.startswith("link_"):
+            if isinstance(val, str) and val.strip():
+                val = {"url": val.strip(), "text": "Ver campaña en Ads Manager"}
+            elif isinstance(val, dict) and val.get("url") and not val.get("text"):
+                val = {**val, "text": "Ver campaña en Ads Manager"}
+        elif col.startswith("long_text_") and isinstance(val, str):
+            val = {"text": val}
+        salida[col] = val
+    return salida
+
+
 async def board_de_item(item_id: str) -> str | None:
     d = await gql("query ($i:[ID!]) { items(ids:$i) { board { id } } }", {"i": [str(item_id)]})
     items = d.get("items") or []
@@ -178,8 +193,9 @@ def crear_servidor(ctx: Contexto):
             return error(f"ERROR DE MONDAY: {e}")
 
     @tool("monday_actualizar",
-          "Cambia columnas de un elemento (estatus, notas, link…). No puede poner etiquetas que disparan tareas "
-          "automáticas. Requiere aprobación humana vigente.",
+          "Cambia columnas de un elemento (estatus, notas, link…). Formatos: estatus {\"label\": \"...\"}, "
+          "notas (long_text_*) {\"text\": \"...\"}, link (link_*) {\"url\": \"https://...\", \"text\": \"...\"}. "
+          "No puede poner etiquetas que disparan tareas automáticas. Requiere aprobación humana vigente.",
           esquema({"tablero_id": {"type": "string"}, "item_id": {"type": "string"},
                    "valores_json": {"type": "string"}}, ["tablero_id", "item_id", "valores_json"]))
     async def monday_actualizar(a):
@@ -188,7 +204,7 @@ def crear_servidor(ctx: Contexto):
             return error(motivo)
         if not tablero_permitido(a["tablero_id"]):
             return error("BLOQUEADO: tablero no permitido.")
-        valores = cargar_json(a["valores_json"], {})
+        valores = normalizar_valores(cargar_json(a["valores_json"], {}))
         bloqueo = valores_prohibidos(valores)
         if bloqueo:
             return error(bloqueo)

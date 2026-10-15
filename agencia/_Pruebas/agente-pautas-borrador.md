@@ -74,6 +74,7 @@ Procesa los elementos de uno en uno, máximo 3 por ejecución.
 9. **Verificar** con ads_get_ad_entities que nada quedó en ACTIVE. Reporta el estado tal como lo devuelve Meta (borrador o pausa).
 
 10. **Actualizar Monday** (solo en MODO BORRADOR): Link a campaña (URL de Ads Manager), Notas (IDs de campaña, conjunto, creativos y anuncios; presupuesto; fechas; segmentación; advertencias) y estatus "Borrador listo" (4). Si algo falló: estatus "Error" (2) + mensaje de Meta + lo que alcanzó a crearse.
+    - Link a campaña: `{"url": "https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=<cuenta>&selected_campaign_ids=<campaña>", "text": "Ver campaña en Ads Manager"}`. Escríbelo aunque el montaje haya quedado a medias, si la campaña ya existe.
 
 ## Salida
 - En MODO SIMULACIÓN, por cada elemento muestra:
