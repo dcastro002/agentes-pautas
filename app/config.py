@@ -83,13 +83,16 @@ def preparar_directorios() -> None:
     if ENTREGABLES_DIR.is_symlink():
         return
     if ENTREGABLES_DIR.exists():
-        # Mueve lo que traiga la imagen (README) al volumen y deja un enlace
+        # Copia lo que traiga la imagen (README) al volumen y deja un enlace.
+        # El volumen es otro disco: rename() falla entre discos, por eso se copia.
+        import shutil
         for p in ENTREGABLES_DIR.iterdir():
             destino = persistente / p.name
-            if not destino.exists():
-                p.rename(destino)
-        try:
-            ENTREGABLES_DIR.rmdir()
-        except OSError:
-            return
+            if destino.exists():
+                continue
+            if p.is_dir():
+                shutil.copytree(p, destino)
+            else:
+                shutil.copy2(p, destino)
+        shutil.rmtree(ENTREGABLES_DIR)
     ENTREGABLES_DIR.symlink_to(persistente, target_is_directory=True)
