@@ -52,6 +52,10 @@ async def verificar_conexion() -> dict:
 def _con_advantage(targeting: dict) -> dict:
     """Meta exige targeting_automation.advantage_audience; por defecto 0 para respetar edad y género del brief."""
     if isinstance(targeting, dict):
+        # "Todos los géneros" en Meta es omitir genders; [0] o [1, 2] se quitan.
+        generos = targeting.get("genders")
+        if generos is not None and (not generos or 0 in generos or set(generos) >= {1, 2}):
+            targeting.pop("genders")
         auto = targeting.setdefault("targeting_automation", {})
         if isinstance(auto, dict):
             auto.setdefault("advantage_audience", 0)

@@ -120,3 +120,25 @@ def test_web():
         (config.ENTREGABLES_DIR / "agencia" / "r.html").write_text("<p>ok</p>")
         assert c.get("/archivos/tok/agencia/r.html").text == "<p>ok</p>"
         assert c.get("/archivos/tok/../../app/config.py").status_code == 404
+
+
+def test_monday_notas_se_agregan(monkeypatch):
+    llamadas = []
+
+    async def gql_falso(consulta, variables=None):
+        llamadas.append((consulta, variables))
+        if consulta.startswith("query"):
+            return {"items": [{"column_values": [{"id": "long_text_mm7vmg76", "text": "Nota previa"}]}]}
+        return {"change_multiple_column_values": {"id": "1"}}
+
+    monkeypatch.setattr(monday, "gql", gql_falso)
+    monkeypatch.setattr(monday, "tablero_permitido", lambda b: True)
+    ctx = Contexto(conv_id="c6", canal="C", thread_ts="1", usuario="U", aprobado=True)
+    _, tools = monday.crear_servidor(ctx)
+    r = correr(herramienta(tools, "monday_actualizar").handler(
+        {"tablero_id": "18434029216", "item_id": "1",
+         "valores_json": '{"long_text_mm7vmg76": "IDs nuevos", "link_mm7v50k2": "https://a.com"}'}))
+    assert not r.get("is_error")
+    enviados = __import__("json").loads(llamadas[-1][1]["v"])
+    assert enviados["long_text_mm7vmg76"]["text"] == "Nota previa\n\nIDs nuevos"
+    assert enviados["link_mm7v50k2"] == {"url": "https://a.com", "text": "Ver campaña en Ads Manager"}

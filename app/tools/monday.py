@@ -195,9 +195,12 @@ def crear_servidor(ctx: Contexto):
     @tool("monday_actualizar",
           "Cambia columnas de un elemento (estatus, notas, link…). Formatos: estatus {\"label\": \"...\"}, "
           "notas (long_text_*) {\"text\": \"...\"}, link (link_*) {\"url\": \"https://...\", \"text\": \"...\"}. "
+          "Las notas se AGREGAN al final del texto que ya existe (el servidor lee el texto completo y no borra nada); "
+          "manda solo la línea nueva. Para reemplazarlas, agregar_notas=false. "
           "No puede poner etiquetas que disparan tareas automáticas. Requiere aprobación humana vigente.",
           esquema({"tablero_id": {"type": "string"}, "item_id": {"type": "string"},
-                   "valores_json": {"type": "string"}}, ["tablero_id", "item_id", "valores_json"]))
+                   "valores_json": {"type": "string"},
+                   "agregar_notas": {"type": "boolean", "default": True}}, ["tablero_id", "item_id", "valores_json"]))
     async def monday_actualizar(a):
         permitido, motivo = ctx.puede_escribir()
         if not permitido:
@@ -209,6 +212,16 @@ def crear_servidor(ctx: Contexto):
         if bloqueo:
             return error(bloqueo)
         try:
+            notas = [c for c in valores if c.startswith("long_text_")]
+            if notas and a.get("agregar_notas", True) is not False:
+                actual = await gql("query ($i:[ID!], $c:[String!]) { items(ids:$i) { column_values(ids:$c) { id text } } }",
+                                   {"i": [str(a["item_id"])], "c": notas})
+                textos = {cv["id"]: (cv.get("text") or "") for it in actual.get("items", []) for cv in it["column_values"]}
+                for c in notas:
+                    previo = textos.get(c, "").rstrip()
+                    nuevo = (valores[c] or {}).get("text", "")
+                    if previo and nuevo and nuevo.strip() not in previo:
+                        valores[c] = {"text": f"{previo}\n\n{nuevo}"}
             d = await gql("mutation ($b:ID!, $i:ID!, $v:JSON!) { change_multiple_column_values(board_id:$b, item_id:$i, column_values:$v) { id } }",
                           {"b": a["tablero_id"], "i": a["item_id"], "v": json.dumps(valores)})
             registrar("elemento actualizado", f"{a['item_id']} · {', '.join(valores.keys())}")
