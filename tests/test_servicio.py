@@ -101,6 +101,7 @@ def test_opciones_del_agente():
     o = runner._opciones(ctx, None)
     assert o.permission_mode == "dontAsk" and "AskUserQuestion" in o.disallowed_tools
     assert set(o.mcp_servers) == {"meta", "monday", "slack"} and o.cwd == str(config.AGENCIA_DIR)
+    assert str(config.ENTREGABLES_DIR.resolve()) in o.add_dirs
 
 
 def test_web():

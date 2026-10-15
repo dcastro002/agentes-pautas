@@ -69,6 +69,9 @@ def _opciones(ctx: Contexto, session_id: str | None) -> ClaudeAgentOptions:
     slack_srv, _ = slack.crear_servidor(ctx)
     return ClaudeAgentOptions(
         cwd=str(config.AGENCIA_DIR),
+        # _Entregables es un enlace al volumen (/data/entregables). Sin esto, Claude Code lo trata como
+        # fuera del proyecto y en modo dontAsk niega leer y escribir ahí.
+        add_dirs=[str(config.ENTREGABLES_DIR.resolve())],
         setting_sources=["project"],
         skills=["campana-meta", "editar-campana", "analizar-campanas", "pieza-contenido"],
         system_prompt={"type": "preset", "preset": "claude_code", "append": INSTRUCCIONES},
@@ -154,6 +157,8 @@ async def ejecutar(ctx: Contexto, prompt: str) -> Resultado:
         db.guardar_conversacion(ctx.conv_id, estado=estado, aprobacion_vigente=False,
                                 session_id=(final.session_id if final else session_id),
                                 item_monday=ctx.item_monday or conv.get("item_monday"))
+        for negado in (getattr(final, "permission_denials", None) or [])[:10]:
+            db.evento(ctx.conv_id, "orquestador", "permiso_negado", str(negado)[:400])
         db.evento(ctx.conv_id, "orquestador", estado, f"costo ${final.total_cost_usd or 0:.3f}" if final else "")
         archivos = sorted(set(ARCHIVO_ENTREGABLE.findall(texto)))
         error = None
