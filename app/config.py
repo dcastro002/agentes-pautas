@@ -4,19 +4,28 @@ Los secretos se leen aquí y se BORRAN de os.environ al arrancar, para que el
 proceso del agente (Claude Code) no los herede: el agente solo puede tocar Meta,
 Monday y Slack a través de las herramientas del servicio, que tienen candados.
 """
+import logging
 import os
+import re
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
 
 
+def _limpio(valor: str) -> str:
+    """Quita espacios y comillas que a veces se cuelan al pegar valores en Railway."""
+    valor = (valor or "").strip()
+    while len(valor) >= 2 and valor[0] == valor[-1] and valor[0] in "\"'":
+        valor = valor[1:-1].strip()
+    return valor
+
+
 def _env(nombre: str, defecto: str = "") -> str:
-    return os.environ.get(nombre, defecto).strip()
+    return _limpio(os.environ.get(nombre, defecto)) or defecto
 
 
 def _secreto(nombre: str) -> str:
-    valor = os.environ.pop(nombre, "").strip()
-    return valor
+    return _limpio(os.environ.pop(nombre, ""))
 
 
 def _lista(nombre: str, defecto: str = "") -> list[str]:
@@ -55,7 +64,15 @@ SLACK_RESPONSABLE_EMAIL = _env("SLACK_RESPONSABLE_EMAIL")  # quien aprueba (se m
 SLACK_APROBADORES = _lista("SLACK_APROBADORES")  # IDs de Slack que pueden aprobar; vacío = cualquiera en el hilo
 
 # --- Meta ------------------------------------------------------------------
-META_API_VERSION = _env("META_API_VERSION", "v26.0")
+META_API_VERSION_DEFECTO = "v26.0"
+_version = _env("META_API_VERSION", META_API_VERSION_DEFECTO)
+if re.fullmatch(r"v?\d+\.\d+", _version):
+    META_API_VERSION = _version if _version.startswith("v") else f"v{_version}"
+else:
+    # No se registra el valor: si alguien pegó ahí un token, no debe quedar en los logs.
+    logging.getLogger("agentes").warning(
+        "META_API_VERSION no tiene el formato vNN.N (%d caracteres); uso %s.", len(_version), META_API_VERSION_DEFECTO)
+    META_API_VERSION = META_API_VERSION_DEFECTO
 META_CUENTAS_PERMITIDAS = [c.replace("act_", "") for c in _lista("META_CUENTAS_PERMITIDAS")]
 META_PAGINAS_PERMITIDAS = _lista("META_PAGINAS_PERMITIDAS")
 

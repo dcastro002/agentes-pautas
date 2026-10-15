@@ -29,6 +29,26 @@ def _base() -> str:
     return f"https://graph.facebook.com/{config.META_API_VERSION}"
 
 
+async def verificar_conexion() -> dict:
+    """Prueba de solo lectura al arrancar: token válido y acceso a la cuenta permitida. Nunca devuelve el token."""
+    if not config.META_ACCESS_TOKEN:
+        return {"ok": False, "detalle": "Falta META_ACCESS_TOKEN"}
+    cuenta = config.META_CUENTAS_PERMITIDAS[0] if config.META_CUENTAS_PERMITIDAS else None
+    ruta = f"act_{cuenta}" if cuenta else "me"
+    try:
+        async with httpx.AsyncClient(timeout=30) as cli:
+            r = await cli.get(f"{_base()}/{ruta}", params={"fields": "name" if cuenta else "id",
+                                                          "access_token": config.META_ACCESS_TOKEN})
+        cuerpo = r.json()
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "version": config.META_API_VERSION, "detalle": f"Sin conexión con Meta: {e}"[:200]}
+    if "error" in cuerpo:
+        err = cuerpo["error"]
+        return {"ok": False, "version": config.META_API_VERSION, "ruta": ruta,
+                "detalle": f"{err.get('code')}/{err.get('error_subcode', '-')}: {str(err.get('message', ''))[:160]}"}
+    return {"ok": True, "version": config.META_API_VERSION, "cuenta": cuerpo.get("name") or cuerpo.get("id")}
+
+
 def _cuenta(cuenta: str) -> str:
     return str(cuenta).replace("act_", "").strip()
 

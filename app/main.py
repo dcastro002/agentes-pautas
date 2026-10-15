@@ -13,6 +13,7 @@ from .contexto import Contexto
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("agentes")
 _socket = None
+_meta_estado: dict = {"ok": None, "detalle": "sin verificar"}
 
 
 @asynccontextmanager
@@ -20,6 +21,10 @@ async def ciclo(app_web: FastAPI):
     global _socket
     config.preparar_directorios()
     db.engine()
+    global _meta_estado
+    from .tools.meta import verificar_conexion
+    _meta_estado = await verificar_conexion()
+    log.info("Meta: %s", _meta_estado)
     if config.SLACK_BOT_TOKEN and config.SLACK_APP_TOKEN:
         from slack_bolt.adapter.socket_mode.async_handler import AsyncSocketModeHandler
         from .slack_bot import app as slack_app, preparar
@@ -44,7 +49,16 @@ def _token_ok(token: str | None) -> None:
 
 @app.get("/health")
 async def salud():
-    return {"ok": True, "modo_prueba": config.MODO_PRUEBA, "slack": bool(_socket)}
+    return {"ok": True, "modo_prueba": config.MODO_PRUEBA, "slack": bool(_socket), "meta": _meta_estado}
+
+
+@app.get("/health/meta")
+async def salud_meta():
+    """Vuelve a probar Meta (solo lectura). Útil después de cambiar el token."""
+    global _meta_estado
+    from .tools.meta import verificar_conexion
+    _meta_estado = await verificar_conexion()
+    return _meta_estado
 
 
 @app.post("/webhooks/monday/{secreto}")
