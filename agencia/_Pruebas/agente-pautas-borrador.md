@@ -61,6 +61,7 @@ Procesa los elementos de uno en uno, máximo 3 por ejecución.
    - Género K7: Todos → sin filtro · Mujeres · Hombres.
    - Intereses K8: "Broad (sin intereses)" → sin intereses. Cualquier otro valor: solo si lo resuelves a un ID real; si no, móntalo sin intereses y anótalo.
    - Ubicaciones del anuncio K9: Advantage+ (automáticas) → no envíes placements · Facebook e Instagram · Solo Facebook · Solo Instagram. Si K9 pide Instagram y no hay Instagram ligado, anótalo como advertencia.
+   - Advantage audience: Meta exige definirlo en cada conjunto. Envía siempre `"targeting_automation": {"advantage_audience": 0}` dentro del targeting, para que edad, género y ubicación sean límites reales. Usa 1 solo si el brief lo pide explícitamente. No confundir con las ubicaciones Advantage+ (K9), que no cambian.
    - Presupuesto: K2 Diario → campaign_daily_budget · Total → campaign_lifetime_budget. Monto en centavos (B8 × 100).
    - Fechas en hora de CDMX (-06:00).
 

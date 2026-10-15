@@ -49,6 +49,15 @@ async def verificar_conexion() -> dict:
     return {"ok": True, "version": config.META_API_VERSION, "cuenta": cuerpo.get("name") or cuerpo.get("id")}
 
 
+def _con_advantage(targeting: dict) -> dict:
+    """Meta exige targeting_automation.advantage_audience; por defecto 0 para respetar edad y género del brief."""
+    if isinstance(targeting, dict):
+        auto = targeting.setdefault("targeting_automation", {})
+        if isinstance(auto, dict):
+            auto.setdefault("advantage_audience", 0)
+    return targeting
+
+
 def _cuenta(cuenta: str) -> str:
     return str(cuenta).replace("act_", "").strip()
 
@@ -178,7 +187,8 @@ def crear_servidor(ctx: Contexto):
 
     @tool("meta_crear_conjunto",
           "Crea un conjunto de anuncios EN PAUSA dentro de una campaña. 'segmentacion_json' es el targeting de Meta "
-          "(geo_locations, age_min, age_max, genders, publisher_platforms…). Requiere aprobación humana vigente.",
+          "(geo_locations, age_min, age_max, genders, publisher_platforms…). Si no incluye targeting_automation, se envía "
+          "advantage_audience=0 (edad y género como límites reales). Requiere aprobación humana vigente.",
           esquema({"cuenta": {"type": "string"}, "campana_id": {"type": "string"}, "nombre": {"type": "string"},
                    "optimization_goal": {"type": "string"},
                    "billing_event": {"type": "string", "default": "IMPRESSIONS"},
@@ -196,7 +206,7 @@ def crear_servidor(ctx: Contexto):
             return error("BLOQUEADO: cuenta publicitaria no permitida.")
         datos = {"name": a["nombre"], "campaign_id": a["campana_id"], "status": "PAUSED",
                  "optimization_goal": a["optimization_goal"], "billing_event": a.get("billing_event") or "IMPRESSIONS",
-                 "targeting": cargar_json(a["segmentacion_json"], {}), "start_time": a["inicio"],
+                 "targeting": _con_advantage(cargar_json(a["segmentacion_json"], {})), "start_time": a["inicio"],
                  "end_time": a.get("fin"), "destination_type": a.get("destination_type")}
         po = cargar_json(a.get("promoted_object_json"), None)
         if po:
