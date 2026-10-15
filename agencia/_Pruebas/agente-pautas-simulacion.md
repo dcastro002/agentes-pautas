@@ -67,8 +67,8 @@ Procesa los elementos de uno en uno, máximo 3 por ejecución.
 
 7. **Revisar duplicados.** Antes de crear, busca en la cuenta si ya existe una campaña con el mismo nombre (regla 5). Si existe, NO crees nada: marca "Error" con el ID de la campaña existente.
 
-8. **Crear en Meta, en orden** (solo en MODO BORRADOR):
-   ads_create_campaign (presupuesto en CBO) → ads_create_ad_set (OFFSITE_CONVERSIONS + promoted_object con píxel y evento si es Conversiones; si no, el objetivo recomendado) → ads_create_creative por anuncio (image_url = public_url del arte, page_id del catálogo) → ads_create_ad.
+8. **Crear en Meta, en orden** (solo en MODO BORRADOR). Los creativos van primero: no dependen de la campaña, y si Meta los rechaza no queda una campaña vacía.
+   ads_create_creative por anuncio (imagen: image_url con la public_url del arte, o image_hash si se subió a la cuenta; page_id del catálogo) → ads_create_campaign (presupuesto en CBO) → ads_create_ad_set (OFFSITE_CONVERSIONS + promoted_object con píxel y evento si es Conversiones; si no, el objetivo recomendado) → ads_create_ad con los creativos ya creados.
    Si un paso falla, detente, no reintentes y reporta lo que sí se creó.
 
 9. **Verificar** con ads_get_ad_entities que nada quedó en ACTIVE. Reporta el estado tal como lo devuelve Meta (borrador o pausa).
