@@ -32,8 +32,8 @@
 - **Tope de prueba:** $500 MXN diarios o $10,000 MXN totales
 
 ## Google Ads
-- **Cuenta:** 3701698329 (370-169-8329) · Freelan · moneda [Completar · confirmar MXN con /health/google-ads]
-- **MCC (login customer id):** [Completar · ID del MCC de Freelan, sin guiones]
+- **Cuenta:** 3701698329 (370-169-8329) · Freelan Marketing 2020 · moneda MXN · zona horaria America/Mexico_City
+- **MCC (login customer id):** 2240203724 (224-020-3724) · Freelan Marketing
 - **Tipo de campaña soportado:** Red de Búsqueda con anuncios responsivos (skill `campana-google`)
 - **Tope de prueba:** $500 MXN diarios por campaña (también lo aplica el servidor)
 - **Ubicación por defecto:** México `geoTargetConstants/2484` · **Idioma:** español `languageConstants/1003`
