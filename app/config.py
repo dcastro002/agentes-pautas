@@ -40,6 +40,16 @@ MONDAY_API_TOKEN = _secreto("MONDAY_API_TOKEN")
 MONDAY_WEBHOOK_SECRET = _secreto("MONDAY_WEBHOOK_SECRET")
 OFICINA_TOKEN = _secreto("OFICINA_TOKEN")
 DATABASE_URL = _secreto("DATABASE_URL")
+GOOGLE_ADS_CLIENT_ID = _secreto("GOOGLE_ADS_CLIENT_ID")
+GOOGLE_ADS_CLIENT_SECRET = _secreto("GOOGLE_ADS_CLIENT_SECRET")
+GOOGLE_ADS_REFRESH_TOKEN = _secreto("GOOGLE_ADS_REFRESH_TOKEN")
+# Opcional: desde sep-2026 el acceso vive en el proyecto de Google Cloud y el developer token ya no hace falta.
+GOOGLE_ADS_DEVELOPER_TOKEN = _secreto("GOOGLE_ADS_DEVELOPER_TOKEN")
+# LinkedIn: token de acceso (dura 60 días) o, si LinkedIn los da, refresh token + cliente para renovarlo solo
+LINKEDIN_ACCESS_TOKEN = _secreto("LINKEDIN_ACCESS_TOKEN")
+LINKEDIN_REFRESH_TOKEN = _secreto("LINKEDIN_REFRESH_TOKEN")
+LINKEDIN_CLIENT_ID = _secreto("LINKEDIN_CLIENT_ID")
+LINKEDIN_CLIENT_SECRET = _secreto("LINKEDIN_CLIENT_SECRET")
 # ANTHROPIC_API_KEY se queda en el entorno: el agente la necesita.
 
 # --- Rutas -----------------------------------------------------------------
@@ -76,11 +86,37 @@ else:
 META_CUENTAS_PERMITIDAS = [c.replace("act_", "") for c in _lista("META_CUENTAS_PERMITIDAS")]
 META_PAGINAS_PERMITIDAS = _lista("META_PAGINAS_PERMITIDAS")
 
+# --- Google Ads ------------------------------------------------------------
+GOOGLE_ADS_API_VERSION = (_env("GOOGLE_ADS_API_VERSION", "v26").lower().lstrip("v").split(".")[0]) or "26"
+GOOGLE_ADS_API_VERSION = f"v{GOOGLE_ADS_API_VERSION}" if GOOGLE_ADS_API_VERSION.isdigit() else "v26"
+# MCC (cuenta de administrador) por la que se entra, sin guiones
+GOOGLE_ADS_LOGIN_CUSTOMER_ID = _env("GOOGLE_ADS_LOGIN_CUSTOMER_ID").replace("-", "")
+GOOGLE_ADS_CUENTAS_PERMITIDAS = [c.replace("-", "") for c in _lista("GOOGLE_ADS_CUENTAS_PERMITIDAS")]
+# Tope de seguridad por campaña (MXN diarios). 0 = sin tope.
+GOOGLE_ADS_PRESUPUESTO_MAX_DIARIO = float(_env("GOOGLE_ADS_PRESUPUESTO_MAX_DIARIO", "500"))
+GOOGLE_ADS_MONEDA = _env("GOOGLE_ADS_MONEDA", "MXN")
+
+# --- LinkedIn Ads ----------------------------------------------------------
+_li_version = _env("LINKEDIN_API_VERSION", "202610").replace("-", "")
+LINKEDIN_API_VERSION = _li_version if re.fullmatch(r"20\d{4}", _li_version) else "202610"
+LINKEDIN_CUENTAS_PERMITIDAS = [re.sub(r"\D", "", c) for c in _lista("LINKEDIN_CUENTAS_PERMITIDAS")]
+# Tope de seguridad por campaña (diario, en la moneda de la cuenta). 0 = sin tope.
+LINKEDIN_PRESUPUESTO_MAX_DIARIO = float(_env("LINKEDIN_PRESUPUESTO_MAX_DIARIO", "500"))
+LINKEDIN_MONEDA = _env("LINKEDIN_MONEDA", "MXN")
+
+# Hosts de los que el servidor puede descargar imágenes (public_url de Monday)
+HOSTS_IMAGENES = _lista("HOSTS_IMAGENES", "monday.com,files-monday-com.s3.amazonaws.com")
+
 # --- Monday ----------------------------------------------------------------
 MONDAY_TABLEROS_PERMITIDOS = _lista("MONDAY_TABLEROS_PERMITIDOS")
 MONDAY_COLUMNA_ESTATUS = _env("MONDAY_COLUMNA_ESTATUS", "color_mm7vt5cg")
 MONDAY_ESTATUS_DISPARO = _env("MONDAY_ESTATUS_DISPARO", "Listo para montar")
 MONDAY_COLUMNA_SOLICITANTE = _env("MONDAY_COLUMNA_SOLICITANTE", "multiple_person_mm7vwycn")
+MONDAY_COLUMNA_NOTAS = _env("MONDAY_COLUMNA_NOTAS", "long_text_mm7vmg76")
+# Estatus que avisan por DM a quien creó el elemento y a su Solicitante
+MONDAY_ESTATUS_AVISO = _lista("MONDAY_ESTATUS_AVISO", "Error,Falta info")
+# 1 = avisar a la responsable cuando alguien crea un elemento a mano en el tablero
+AVISAR_ELEMENTO_NUEVO = _env("AVISAR_ELEMENTO_NUEVO", "1") != "0"
 # Etiquetas que el agente nunca puede poner (disparan tareas automáticas)
 MONDAY_ETIQUETAS_PROHIBIDAS = _lista("MONDAY_ETIQUETAS_PROHIBIDAS", "Listo para montar,Prueba,Producción,Activa")
 # Mismos candados por índice de estatus: "columna:índice"

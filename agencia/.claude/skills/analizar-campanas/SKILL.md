@@ -32,6 +32,8 @@ Invocar al agente `analista` con: cliente, periodo, alcance, rutas de `Cuentas.m
 
 Qué debe reunir:
 - **Meta:** filas anuncio × mes (campaña, conjunto, anuncio, objetivo, inversión, impresiones, clics en el enlace, resultados); alcance total del periodo; desgloses por edad, género, ubicación, dispositivo y región (top 10); inventario de campañas, conjuntos y anuncios por estado, activos sin gasto y rechazados.
+- **Google Ads** (si `Cuentas.md` tiene la sección y el servidor tiene `google_ads_consultar`): filas anuncio × mes con GAQL, por ejemplo `SELECT campaign.name, ad_group.name, ad_group_ad.ad.id, segments.month, metrics.cost_micros, metrics.impressions, metrics.clicks, metrics.conversions FROM ad_group_ad WHERE segments.date BETWEEN '<inicio>' AND '<fin>'`. El costo viene en micros: dividir entre 1,000,000. Términos de búsqueda principales (`search_term_view`, top 20 por costo) para proponer negativas. En el JSON, la plataforma de cada fila es "Google Ads".
+- **LinkedIn Ads** (si `Cuentas.md` tiene la sección y el servidor tiene `linkedin_consultar`): `ruta=adAnalytics`, `consulta=q=analytics&pivot=CREATIVE&timeGranularity=MONTHLY&dateRange=(start:(year:AAAA,month:M,day:D),end:(year:AAAA,month:M,day:D))&accounts=List(urn%3Ali%3AsponsoredAccount%3A<id>)&fields=impressions,clicks,landingPageClicks,costInLocalCurrency,externalWebsiteConversions,pivotValues,dateRange`. En el JSON, la plataforma de cada fila es "LinkedIn Ads".
 - **Monday:** todos los elementos del tablero del contexto, con estatus, solicitante, fecha y causa (primera línea de Notas cuando es "Falta info" o "Error").
 - **HubSpot:** contactos del periodo por mes, canal, campaña, etapa y propietario, según el mapa.
 

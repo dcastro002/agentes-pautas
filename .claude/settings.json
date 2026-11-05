@@ -1,0 +1,21 @@
+{
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./**/client_secret*.json)",
+      "Read(./**/service-account*.json)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.key)",
+      "Bash(railway:*)",
+      "Bash(git push origin main:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push --force:*)"
+    ]
+  }
+}

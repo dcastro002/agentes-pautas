@@ -1,7 +1,20 @@
+# Secretos: viven SOLO en las variables de Railway
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+client_secret*.json
+service-account*.json
+*credenciales*/
+token*.json
+
+# Local
 datos/
 __pycache__/
 *.pyc
 .venv/
+.pytest_cache/
 agencia/_Entregables/*
 !agencia/_Entregables/README.md

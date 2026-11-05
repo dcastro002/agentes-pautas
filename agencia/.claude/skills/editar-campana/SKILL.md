@@ -23,6 +23,24 @@ Si no está claro cuál campaña o qué cambio, preguntar antes de leer nada má
 | Presupuesto o fechas | Solo si la persona lo pide explícitamente; mostrar el monto antes y después en MXN y en centavos |
 | Segmentación | Solo si la persona lo pide explícitamente; avisar que reinicia el aprendizaje |
 
+## Google Ads (Red de Búsqueda)
+Los anuncios de Google **no se pueden editar**: cambiar un título o una descripción es crear un anuncio nuevo y pausar el anterior.
+| Cambio | Cómo se hace en Google Ads |
+|---|---|
+| Cambiar textos de un anuncio | Anuncio nuevo en el mismo grupo, **en pausa** (`google_ads_agregar_anuncio`), con los textos validados (`brief_google.py`); pausar el anterior solo si el plan aprobado lo dice (`google_ads_pausar`). Una persona activa el nuevo |
+| Agregar palabras clave o negativas | `google_ads_agregar_palabras` (las positivas entran en pausa) |
+| Quitar un anuncio, grupo o palabra | `google_ads_pausar`. No se elimina nada |
+| Presupuesto, fechas, ubicaciones o puja | No soportado todavía desde el agente: dar los pasos para hacerlo en Google Ads |
+El plan antes → después y la aprobación son iguales que en Meta.
+
+## LinkedIn Ads
+Como en Google, el contenido de un anuncio de LinkedIn **no se puede editar**.
+| Cambio | Cómo se hace en LinkedIn |
+|---|---|
+| Cambiar arte o texto de un anuncio | Anuncio nuevo en la misma campaña, **en borrador** (`linkedin_agregar_anuncio`); pausar el anterior solo si el plan aprobado lo dice (`linkedin_pausar`). Una persona activa el nuevo |
+| Quitar un anuncio o una campaña | `linkedin_pausar` con PAUSED o ARCHIVED. No se borra nada |
+| Presupuesto, puja, fechas o audiencia | No soportado todavía desde el agente: dar los pasos para hacerlo en Campaign Manager |
+
 ## Pasos
 
 ### 1. Resolver contexto y campaña

@@ -3,8 +3,11 @@
 Corres en un servidor del equipo de marketing. La gente te escribe por **Slack** y nadie ve una terminal. Las reglas de `CLAUDE.md`, los agentes y las skills del proyecto aplican igual, con las diferencias de abajo.
 
 ## Qué flujo usar
-- **Crear una campaña** (brief, copy, artes, registro en Monday) → skill `campana-meta`.
-- **Subir o montar en Meta** un elemento de Monday → sigue `_Pruebas/agente-pautas-borrador.md`, procesando solo el elemento indicado.
+- **Crear una campaña de Meta** (brief, copy, artes, registro en Monday) → skill `campana-meta`.
+- **Crear una campaña de Google / búsqueda** (palabras clave, anuncios de texto, registro en Monday) → skill `campana-google`. 
+- **Crear una campaña de LinkedIn** (audiencia por cargo, seniority, industria; imagen; registro en Monday) → skill `campana-linkedin`.
+- Si piden "una campaña" sin decir plataforma, pregunta: ¿Meta, Google o LinkedIn?
+- **Subir o montar** un elemento de Monday → sigue `_Pruebas/agente-pautas-borrador.md`, procesando solo el elemento indicado. Si el elemento trae un JSON de Google o LinkedIn en la columna Brief, ese documento te manda al procedimiento de esa plataforma.
 - **Editar una campaña** (cambiar imagen, corregir texto, pausar, agregar o quitar anuncios) → skill `editar-campana`.
 - **Reporte o análisis** → skill `analizar-campanas`.
 - Una pregunta → respóndela directo, sin correr un flujo.
@@ -28,6 +31,12 @@ Si no queda claro qué quiere la persona o falta un dato, pregúntalo en tu resp
 | Monday `create_item`, `change_item_column_values` | `monday_crear_elemento`, `monday_actualizar` |
 | `get_asset_upload_url` + `curl` + `finalize_asset_upload` | `monday_subir_archivo` |
 | Avisos por Slack | `slack_notificar` |
+| Google Ads: leer campañas, métricas o IDs de ubicación | `google_ads_consultar` (GAQL, solo SELECT) |
+| Google Ads: montar la campaña de búsqueda | `google_ads_montar_busqueda` (una llamada, todo o nada, en pausa) |
+| LinkedIn: buscar URNs de segmentación, puja sugerida, campañas, métricas | `linkedin_consultar` (solo GET) |
+| LinkedIn: montar la campaña | `linkedin_montar_campana` (todo en DRAFT; si falla, limpia) |
+| LinkedIn: editar | `linkedin_agregar_anuncio` (entra en DRAFT) y `linkedin_pausar` (PAUSED o ARCHIVED) |
+| Google Ads: editar | `google_ads_agregar_anuncio` / `google_ads_agregar_palabras` (entran en pausa) y `google_ads_pausar` |
 
 - No uses `curl`, `wget` ni llamadas de red desde la terminal: el servidor las bloquea. Todo pasa por las herramientas.
 - Para generar PNG usa `python3 .claude/skills/campana-meta/scripts/render_png.py` (Chromium ya está instalado).
@@ -35,7 +44,8 @@ Si no queda claro qué quiere la persona o falta un dato, pregúntalo en tu resp
 ## Avisos
 Al terminar un flujo que toca Monday o Meta, usa `slack_notificar`:
 - `canal`: qué se hizo, en qué elemento y el link.
-- `solicitante` (con `item_id`): si quedó en "Falta info" o "Error", qué falta exactamente (campo y celda) o qué falló, en palabras simples y con qué hacer; si quedó listo, el link.
+- `solicitante` (con `item_id`): si quedó listo, el link.
+- Si el elemento queda en "Error" o "Falta info", escribe en las **Notas del agente** qué falta exactamente (campo y celda) o qué falló, en palabras simples y qué hacer. El servidor avisa solo por DM a quien creó el elemento y a su Solicitante con esas notas: no repitas ese aviso con `slack_notificar`.
 - `responsable`: cuando algo espera su revisión o aprobación.
 
 ## Formato de tus respuestas (Slack)

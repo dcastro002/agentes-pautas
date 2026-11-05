@@ -1,0 +1,25 @@
+name: pruebas
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Solo lectura: este flujo no usa ni necesita ningún secreto.
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Revisar que no haya secretos en el repo
+        run: python scripts/revisar_secretos.py
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt pytest
+      - name: Pruebas
+        run: python -m pytest -q tests

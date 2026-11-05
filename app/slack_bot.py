@@ -82,6 +82,14 @@ async def correr(cliente, ctx: Contexto, prompt: str) -> None:
     if res.error and not res.texto:
         await cliente.chat_update(channel=ctx.canal, ts=aviso["ts"],
                                   text=f"⚠️ Algo falló: {res.error[:500]}\nEscríbeme en este hilo para reintentar.")
+        if ctx.item_monday and ctx.usuario.startswith("monday:"):
+            # El montaje lo disparó Monday y nadie está mirando el hilo: avisar a quien creó el elemento
+            from . import avisos
+            try:
+                await avisos.avisar_problema(cliente, ctx.item_monday, "Error",
+                                             detalle=f"El agente se detuvo por un error del servidor: {res.error[:600]}")
+            except Exception:  # noqa: BLE001
+                pass
         return
     cuerpo = a_mrkdwn(res.texto)
     if res.archivos:
