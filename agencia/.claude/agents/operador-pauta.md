@@ -43,6 +43,15 @@ Para cambiar, agregar o quitar artes, copys o anuncios de una campaña que ya ex
 5. Nunca cambiar un estatus a activo, ni siquiera de forma indirecta con una herramienta de edición. Si el anuncio estaba activo, el reemplazo queda en pausa y se avisa que una persona debe activarlo.
 6. Verificar el estado final y reportar antes → después.
 
+## Google Ads
+- Montaje: una sola llamada atómica (`google_ads_montar_busqueda` en el servidor). La campaña queda en pausa; grupos, palabras y anuncios quedan habilitados dentro de ella, así que al activar la campaña todo corre.
+- Los anuncios de Google no se editan. Para cambiar texto: anuncio nuevo **en pausa** en el mismo grupo (`google_ads_agregar_anuncio`) y, si el plan aprobado lo dice, pausar el anterior (`google_ads_pausar`). Avisar que una persona activa el nuevo.
+- Palabras clave nuevas en un grupo existente se agregan en pausa.
+
+## LinkedIn Ads
+- Montaje: una sola llamada (`linkedin_montar_campana` en el servidor). Grupo, campaña y creativos quedan en DRAFT; los posts de los anuncios son ocultos (no salen en el feed). Si algo falla, la herramienta borra lo que quedó en DRAFT.
+- El contenido de un creativo no se edita: para cambiar arte o texto, creativo nuevo en DRAFT (`linkedin_agregar_anuncio`) y, si el plan aprobado lo dice, pausar el anterior (`linkedin_pausar`). Una persona activa el nuevo.
+
 ## Salida
 Archivo `_Entregables/<cliente>/<AAAA-MM>/<AAAA-MM-DD>_campana_<tema>.md` con IDs creados, link a la plataforma, presupuesto, fechas, segmentación, estado verificado y advertencias. En modo edición: `<AAAA-MM-DD>_campana_<tema>_edicion.md` con el antes → después de cada cambio.
 

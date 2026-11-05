@@ -35,6 +35,15 @@ Llevar una solicitud aprobada al gestor de proyectos, en el formato que espera e
 7. Escribir en Notas: quién aprobó, cuándo y la ruta de los entregables en el proyecto.
 8. Leer el elemento de vuelta y verificar: estatus, cliente y número de archivos en cada columna.
 
+## Variante Google Ads (skill `campana-google`)
+- No hay Excel de plantilla ni artes: recibe el JSON de la campaña y el Excel de revisión que generó `brief_google.py`.
+- Adjunta **los dos** en la columna Brief (`application/json` y el tipo de Excel). La columna Artes queda vacía.
+- El resto del proceso (buscar duplicado, estatus inicial, Notas, verificación) es igual.
+
+## Variante LinkedIn (skill `campana-linkedin`)
+- Recibe el JSON de la campaña, el Excel de revisión de `brief_linkedin.py` y los PNG.
+- Adjunta el JSON y el Excel en la columna Brief y cada PNG en la columna Artes, con el nombre exacto que aparece en el campo `archivo` de cada anuncio.
+
 ## Salida
 Archivo `_Entregables/<cliente>/<AAAA-MM>/<AAAA-MM-DD>_campana_<tema>_solicitud.md` con: ID y nombre del elemento, link al elemento, archivos adjuntos, estatus, y la instrucción exacta para montar la campaña cuando la persona lo apruebe.
 

@@ -29,7 +29,9 @@ Procesa los elementos de uno en uno, máximo 3 por ejecución.
 
 2. **Bloquear.** Cambia el elemento a "En proceso (agente)" (0) justo antes de trabajarlo, no todos al inicio. (En SIMULACIÓN, omite este paso.)
 
-3. **Leer el brief.** Obtén el ID del asset de la columna Brief, llama get_assets para su public_url y léelo con execute_code de Monday pasando esa URL en files (openpyxl, data_only=True). Usa solo la primera pestaña ("Meta  Tik Tok  Linkedin"); ignora las demás, incluida "Catálogo agente".
+3. **¿Es de Google o LinkedIn?** Si en la columna Brief hay un archivo `*.json` de campaña, no lo simules como Meta: valida el JSON con el script de su plataforma (`.claude/skills/campana-google/scripts/brief_google.py` o `.claude/skills/campana-linkedin/scripts/brief_linkedin.py`, con `<json> /tmp/revision.xlsx`) y muestra el plan (grupos, palabras clave, anuncios, presupuesto). No llames herramientas que creen algo.
+
+3b. **Leer el brief.** Obtén el ID del asset de la columna Brief, llama get_assets para su public_url y léelo con execute_code de Monday pasando esa URL en files (openpyxl, data_only=True). Usa solo la primera pestaña ("Meta  Tik Tok  Linkedin"); ignora las demás, incluida "Catálogo agente".
    - B1 cliente · B2 nombre · B3 plataforma · B4 objetivo · B5 ubicación geográfica · B6 inicio · B7 fin · B8 presupuesto en MXN
    - Filas 11-18, un anuncio por fila: A copy · B título · C CTA · D URL de destino · E carpeta con artes (referencia, no se usa) · G formato · H nombre exacto del archivo del arte
    - K2 tipo de presupuesto · K3 evento de conversión · K4 categoría especial · K5 edad mínima · K6 edad máxima · K7 género · K8 intereses o públicos · K9 ubicaciones del anuncio (placements) · K10 cuenta de Instagram (opcional) · K11 ID de cuenta · K12 página (nombre) · K13 píxel (nombre)

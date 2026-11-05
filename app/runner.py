@@ -9,11 +9,12 @@ from claude_agent_sdk import (AssistantMessage, ClaudeAgentOptions, HookMatcher,
 
 from . import config, db
 from .contexto import Contexto
-from .tools import meta, monday, slack
+from .tools import google_ads, linkedin, meta, monday, slack
 
 MARCA_APROBACION = "[[APROBACION]]"
 INSTRUCCIONES = (Path(__file__).parent / "instrucciones_servidor.md").read_text(encoding="utf-8")
 RED_PROHIBIDA = re.compile(r"\b(curl|wget|nc|ncat|ssh|scp|telnet|ftp)\b|graph\.facebook|api\.monday|slack\.com"
+                           r"|googleads\.googleapis|oauth2\.googleapis|api\.linkedin\.com|linkedin\.com/oauth"
                            r"|import\s+(requests|httpx|urllib)|from\s+(requests|httpx|urllib)", re.I)
 ARCHIVO_ENTREGABLE = re.compile(r"_Entregables/[^\s`'\")\]>]+?\.(?:html|png|jpg|xlsx|md|pdf|json)")
 
@@ -67,17 +68,20 @@ def _opciones(ctx: Contexto, session_id: str | None) -> ClaudeAgentOptions:
     meta_srv, _ = meta.crear_servidor(ctx)
     monday_srv, _ = monday.crear_servidor(ctx)
     slack_srv, _ = slack.crear_servidor(ctx)
+    google_srv, _ = google_ads.crear_servidor(ctx)
+    linkedin_srv, _ = linkedin.crear_servidor(ctx)
     return ClaudeAgentOptions(
         cwd=str(config.AGENCIA_DIR),
         # _Entregables es un enlace al volumen (/data/entregables). Sin esto, Claude Code lo trata como
         # fuera del proyecto y en modo dontAsk niega leer y escribir ahí.
         add_dirs=[str(config.ENTREGABLES_DIR.resolve())],
         setting_sources=["project"],
-        skills=["campana-meta", "editar-campana", "analizar-campanas", "pieza-contenido"],
+        skills=["campana-meta", "campana-google", "campana-linkedin", "editar-campana", "analizar-campanas", "pieza-contenido"],
         system_prompt={"type": "preset", "preset": "claude_code", "append": INSTRUCCIONES},
-        mcp_servers={"meta": meta_srv, "monday": monday_srv, "slack": slack_srv},
+        mcp_servers={"meta": meta_srv, "monday": monday_srv, "slack": slack_srv, "google_ads": google_srv,
+                     "linkedin": linkedin_srv},
         allowed_tools=["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Agent", "Task", "Skill", "TodoWrite",
-                       "mcp__meta", "mcp__monday", "mcp__slack"],
+                       "mcp__meta", "mcp__monday", "mcp__slack", "mcp__google_ads", "mcp__linkedin"],
         disallowed_tools=["AskUserQuestion", "WebFetch", "WebSearch", "NotebookEdit"],
         permission_mode="dontAsk",
         model=config.AGENT_MODEL,
@@ -92,7 +96,7 @@ def _opciones(ctx: Contexto, session_id: str | None) -> ClaudeAgentOptions:
 
 
 def _agente_de_herramienta(nombre: str) -> str | None:
-    if nombre.startswith("mcp__meta__"):
+    if nombre.startswith(("mcp__meta__", "mcp__google_ads__", "mcp__linkedin__")):
         return "operador-pauta"
     if nombre.startswith("mcp__monday__"):
         return "gestor-solicitudes"

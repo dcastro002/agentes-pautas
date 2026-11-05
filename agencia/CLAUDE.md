@@ -91,7 +91,9 @@ Antes de crear un agente nuevo, verificar que su responsabilidad no esté cubier
 |---|---|
 | `pieza-contenido` | estratega → redactor → disenador (si es visual) → guardian-marca → aprobación humana |
 | `editar-campana` | estado actual → redactor / disenador (si hay material nuevo) → guardian-marca → plan antes → después → aprobación humana → gestor-solicitudes (arte a Monday) → operador-pauta (modo edición) |
-| `analizar-campanas` | analista (Meta + Monday + HubSpot, solo lectura) → JSON + resumen → dashboard HTML |
+| `analizar-campanas` | analista (Meta, Google Ads, LinkedIn + Monday + HubSpot, solo lectura) → JSON + resumen → dashboard HTML |
+| `campana-google` | estratega (brief + grupos, palabras clave y negativas) → redactor (anuncios responsivos) → guardian-marca → JSON validado + Excel → aprobación humana → gestor-solicitudes (Monday) → revisión humana → montaje en pausa |
+| `campana-linkedin` | estratega (brief + audiencia B2B en facetas de LinkedIn) → redactor → disenador (PNG) → guardian-marca → JSON validado + Excel → aprobación humana → gestor-solicitudes (Monday) → revisión humana → montaje en borrador |
 | `campana-meta` | estratega (brief + datos de pauta) → redactor → disenador (PNG) → guardian-marca → aprobación humana → gestor-solicitudes (Monday) → revisión humana → montaje en borrador |
 
 ### Plantilla de brief

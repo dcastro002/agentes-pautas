@@ -17,7 +17,7 @@ from claude_agent_sdk import create_sdk_mcp_server, tool
 
 from .. import config, db
 from ..contexto import Contexto
-from .comun import cargar_json, error, esquema, ok
+from .comun import cargar_json, descargar_imagen, error, esquema, ok
 
 _contador = itertools.count(1)
 RUTA_VALIDA = re.compile(r"^(act_)?[0-9]+(/[a-z_]+)?$")
@@ -239,10 +239,7 @@ def crear_servidor(ctx: Contexto):
         origen = a["origen"].strip()
         try:
             if origen.startswith("https://"):
-                async with httpx.AsyncClient(timeout=120, follow_redirects=True) as cli:
-                    r = await cli.get(origen)
-                    r.raise_for_status()
-                    contenido = r.content
+                contenido = await descargar_imagen(origen, config.HOSTS_IMAGENES)
                 nombre = a.get("nombre_archivo") or origen.split("?")[0].rsplit("/", 1)[-1] or "arte.png"
             else:
                 ruta = _ruta_local(origen)

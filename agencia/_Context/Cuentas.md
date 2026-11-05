@@ -31,6 +31,22 @@
 - **Presupuesto diario mínimo de la cuenta:** $18.25 MXN
 - **Tope de prueba:** $500 MXN diarios o $10,000 MXN totales
 
+## Google Ads
+- **Cuenta:** 3701698329 (370-169-8329) · Freelan · moneda [Completar · confirmar MXN con /health/google-ads]
+- **MCC (login customer id):** [Completar · ID del MCC de Freelan, sin guiones]
+- **Tipo de campaña soportado:** Red de Búsqueda con anuncios responsivos (skill `campana-google`)
+- **Tope de prueba:** $500 MXN diarios por campaña (también lo aplica el servidor)
+- **Ubicación por defecto:** México `geoTargetConstants/2484` · **Idioma:** español `languageConstants/1003`
+- **Brief en Monday:** JSON de la campaña + Excel de revisión en la columna Brief; la columna Artes queda vacía
+
+## LinkedIn Ads
+- **Cuenta publicitaria:** 519998414 · Freelan · moneda [Completar · confirmar con /health/linkedin]
+- **Página de empresa:** la ligada a la cuenta (el servidor la lee de la cuenta). Quien autoriza el token necesita rol de Administrador o Poster de contenido patrocinado en la página
+- **Tipo soportado:** contenido patrocinado de imagen única (skill `campana-linkedin`), objetivos VISITAS_SITIO, INTERACCION y RECONOCIMIENTO
+- **Tope de prueba:** 500 diarios por campaña, en la moneda de la cuenta (también lo aplica el servidor)
+- **Ubicación por defecto:** México. Confirmar su URN con `linkedin_consultar` la primera vez y anotarlo aquí: [Completar · urn:li:geo:…]
+- **Brief en Monday:** JSON de la campaña + Excel de revisión en la columna Brief; PNG en la columna Artes
+
 ## HubSpot
 - **Portal:** [Completar · ID del portal]
 - **Mapa de propiedades:** `_Context/HubSpot-mapa.md` (lo propone el analista la primera vez; una persona lo confirma)
