@@ -40,11 +40,13 @@
 - **Brief en Monday:** JSON de la campaña + Excel de revisión en la columna Brief; la columna Artes queda vacía
 
 ## LinkedIn Ads
-- **Cuenta publicitaria:** 519998414 · Freelan · moneda [Completar · confirmar con /health/linkedin]
-- **Página de empresa:** la ligada a la cuenta (el servidor la lee de la cuenta). Quien autoriza el token necesita rol de Administrador o Poster de contenido patrocinado en la página
+- **Cuenta publicitaria:** 519998414 · Freelan Marketing · moneda MXN · estatus ACTIVE (confirmado con /health/linkedin el 2026-11-12)
+- **Página de empresa:** urn:li:organization:3644328 (Freelan), ligada a la cuenta; el servidor la lee de la cuenta. Quien autoriza el token necesita rol de Administrador o Poster de contenido patrocinado en la página
 - **Tipo soportado:** contenido patrocinado de imagen única (skill `campana-linkedin`), objetivos VISITAS_SITIO, INTERACCION y RECONOCIMIENTO
-- **Tope de prueba:** 500 diarios por campaña, en la moneda de la cuenta (también lo aplica el servidor)
-- **Ubicación por defecto:** México. Confirmar su URN con `linkedin_consultar` la primera vez y anotarlo aquí: [Completar · urn:li:geo:…]
+- **Tope de prueba:** 500 MXN diarios por campaña (también lo aplica el servidor)
+- **Ubicación por defecto:** México · urn:li:geo:103323778
+- **Estado al crear:** todo se crea en DRAFT; la activación la hace la directora de pautas en Campaign Manager
+- **Token:** vence a los 60 días (generado 2026-11-12); renovar antes del 2027-01-08
 - **Brief en Monday:** JSON de la campaña + Excel de revisión en la columna Brief; PNG en la columna Artes
 
 ## HubSpot
