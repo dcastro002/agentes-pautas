@@ -38,6 +38,8 @@ CTAS = {"LEARN_MORE", "SIGN_UP", "REGISTER", "DOWNLOAD", "SUBSCRIBE", "REQUEST_D
 FACETAS = {"ubicaciones": "locations", "cargos": "titles", "funciones": "jobFunctions",
            "seniority": "seniorities", "industrias": "industries", "tamano_empresa": "staffCountRanges",
            "habilidades": "skills", "empresas": "employers", "idiomas_interfaz": "interfaceLocales"}
+# Idioma → país con el que LinkedIn acepta el locale de la campaña (solo parejas soportadas)
+LOCALES = {"es": "ES", "en": "US", "pt": "BR", "fr": "FR", "de": "DE", "it": "IT", "nl": "NL"}
 TEXTO_MAX, TEXTO_RECOMENDADO = 600, 150
 TITULO_MAX, TITULO_RECOMENDADO = 200, 70
 MAX_ANUNCIOS = 10
@@ -233,6 +235,20 @@ def validar_anuncio(a: dict, donde: str, errores: list, avisos: list) -> dict:
             "nombre_archivo": a.get("nombre_archivo")}
 
 
+def locale_campana(idioma, errores: list[str]) -> dict:
+    """Locale de la campaña = idioma de los anuncios, en una pareja que LinkedIn acepta.
+
+    LinkedIn no acepta cualquier país con cualquier idioma (es_MX falla; el español es es_ES).
+    Solo se toma el idioma ("es", "es-MX", "es_MX" → es_ES). La geografía va en la segmentación.
+    """
+    codigo = re.split(r"[-_]", str(idioma or "es").strip())[0].lower()
+    pais = LOCALES.get(codigo)
+    if not pais:
+        errores.append(f"idioma «{idioma}» no soportado por LinkedIn; usa uno de: {', '.join(sorted(LOCALES))}")
+        codigo, pais = "es", LOCALES["es"]
+    return {"country": pais, "language": codigo}
+
+
 def armar_campana(spec: dict) -> tuple[list[str], list[str], dict]:
     """Valida la campaña y arma los cuerpos de grupo y campaña (los anuncios se arman al montar)."""
     errores: list[str] = []
@@ -293,6 +309,10 @@ def armar_campana(spec: dict) -> tuple[list[str], list[str], dict]:
         errores.append(f"Debe haber de 1 a {MAX_ANUNCIOS} anuncios")
     anuncios_ok = [validar_anuncio(a, f"anuncio {i}", errores, avisos) for i, a in enumerate(anuncios, 1)]
 
+    locale = locale_campana(spec.get("idioma"), errores)
+    if spec.get("pais"):
+        avisos.append("pais se ignora: el locale es el idioma de los anuncios; el país va en segmentacion.ubicaciones")
+
     moneda = config.LINKEDIN_MONEDA
     cuenta_urn = f"urn:li:sponsoredAccount:{cid}"
     horario = {"start": _epoch_ms(inicio)} if inicio else {}
@@ -303,7 +323,7 @@ def armar_campana(spec: dict) -> tuple[list[str], list[str], dict]:
         "account": cuenta_urn, "name": nombre, "type": "SPONSORED_UPDATES", "objectiveType": objetivo,
         "costType": tipo_puja, "unitCost": {"amount": f"{monto_puja:.2f}", "currencyCode": moneda},
         "dailyBudget": {"amount": f"{presupuesto:.2f}", "currencyCode": moneda},
-        "locale": {"country": str(spec.get("pais") or "MX").upper(), "language": str(spec.get("idioma") or "es").lower()},
+        "locale": locale,
         "offsiteDeliveryEnabled": bool(spec.get("red_de_audiencia", False)),
         "politicalIntent": "NOT_POLITICAL", "status": "DRAFT", "runSchedule": horario,
         "targetingCriteria": criterio,

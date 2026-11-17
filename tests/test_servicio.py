@@ -367,6 +367,22 @@ def test_linkedin_armar_en_draft(monkeypatch):
     assert "urn:li:adTargetingFacet:jobFunctions" in c["targetingCriteria"]["exclude"]["or"]
 
 
+def test_linkedin_locale_soportado(monkeypatch):
+    monkeypatch.setattr(config, "LINKEDIN_CUENTAS_PERMITIDAS", ["519998414"])
+    # Por defecto: español en la pareja que LinkedIn acepta (es_ES), nunca es_MX
+    errores, _, plan = linkedin.armar_campana(_spec_linkedin())
+    assert errores == [] and plan["campana"]["locale"] == {"country": "ES", "language": "es"}
+    # es-MX / es_MX se reducen al idioma; pais se ignora con aviso
+    errores, avisos, plan = linkedin.armar_campana(_spec_linkedin(idioma="es_MX", pais="MX"))
+    assert errores == [] and plan["campana"]["locale"] == {"country": "ES", "language": "es"}
+    assert any("pais se ignora" in a for a in avisos)
+    _, _, plan = linkedin.armar_campana(_spec_linkedin(idioma="EN"))
+    assert plan["campana"]["locale"] == {"country": "US", "language": "en"}
+    # Idioma sin soporte: error, no se adivina
+    errores, _, _ = linkedin.armar_campana(_spec_linkedin(idioma="xx"))
+    assert any("no soportado" in e for e in errores)
+
+
 def test_linkedin_armar_detecta_errores(monkeypatch):
     monkeypatch.setattr(config, "LINKEDIN_CUENTAS_PERMITIDAS", ["519998414"])
     spec = _spec_linkedin(cuenta="111", presupuesto_diario=99999, segmentacion={"cargos": ["Director de marketing"]})
