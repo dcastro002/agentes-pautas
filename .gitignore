@@ -18,3 +18,6 @@ __pycache__/
 .pytest_cache/
 agencia/_Entregables/*
 !agencia/_Entregables/README.md
+
+# macOS
+.DS_Store
