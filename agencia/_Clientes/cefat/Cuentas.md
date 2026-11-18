@@ -11,11 +11,12 @@
 ## Meta Ads
 - **Cuenta publicitaria:** `act_1922847738064807` · "CEFAT" · **moneda USD**
 - **Business Manager:** Azteca · 984691601549422
-- **Página de Facebook:** [Completar · ID de la página /CEFAT]
-- **Instagram:** [Completar · ID de la cuenta @azteca_cefat ligada]
-- **Píxel:** [Completar · ID] · eventos: `PageView` en landings A y B; `Lead` en el clic al botón de WhatsApp
+- **Página de Facebook:** 158755980843326 · Azteca Cefat (confirmada en la cuenta el 2026-11-18). La cuenta promueve otras páginas de TV Azteca: **usar solo esta**.
+- **Instagram:** sin cuenta ligada a la cuenta publicitaria (2026-11-18). Crear los anuncios **sin** `instagram_user_id`; salen con la identidad de la página. Nunca usar la cuenta de Instagram de Freelan que aparece en la lista.
+- **Píxel:** no se usa en campañas de tráfico. Hay dos activos en el Business: 1327379358121484 ("CEFAT Pixel") y 1275020866561512 ("Píxel de CEFAT"). [Completar · cuál usan las landings] Para optimizar a `Lead`, detenerse y preguntar cuál usar. Eventos: `PageView` en landings A y B; `Lead` en el clic al botón de WhatsApp
 - **Objetivo principal:** Click-to-WhatsApp vía ManyChat, con `ref` único por anuncio (ver `Estrategia.md` §7)
-- **Tope de prueba:** [Completar · en USD diarios y totales]
+- **Tope de prueba:** 25 USD diarios o 300 USD totales por campaña. Los montos van en **USD** (`presupuesto_centavos` en centavos de dólar: 25 USD = 2500). Nunca poner montos pensados en MXN.
+- **Objetivo soportado hoy:** tráfico a landing con UTMs (link https). Click-to-WhatsApp **todavía no** lo soporta el servidor: si se pide, avisar y proponer la versión a landing.
 
 > ⚠️ **Cuenta compartida con TV Azteca.** La cuenta tiene campañas que no son de CEFAT (boxeo, Azteca Deportes, RevisaCentral, DAZN, Azteca 7).
 > - **Solo crear, leer, editar o reportar** campañas cuyo nombre empiece con `CEFAT_` o `Cefat_` (y la del typo `CEFTA_Tráfico_Papás_Fase3`).
