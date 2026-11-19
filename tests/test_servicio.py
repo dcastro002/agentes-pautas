@@ -168,6 +168,52 @@ def test_meta_prefijo_en_cuenta_compartida(monkeypatch):
     assert not correr(asignar({"anuncio_id": "ad11", "creativo_id": "c9"})).get("is_error")
 
 
+def test_meta_abo_y_advantage(monkeypatch):
+    _cuenta_compartida(monkeypatch)
+    ctx = Contexto(conv_id="t3", canal="C", thread_ts="1", usuario="U", aprobado=True)
+    _, tools = meta.crear_servidor(ctx)
+    campana = herramienta(tools, "meta_crear_campana").handler
+    base = {"cuenta": "777", "nombre": "CEFAT_ABO", "objetivo": "OUTCOME_TRAFFIC"}
+    # ABO: campaña sin presupuesto ni bid_strategy
+    r = correr(campana({**base, "presupuesto_en": "conjunto"}))
+    texto = r["content"][0]["text"]
+    assert not r.get("is_error") and "is_adset_budget_sharing_enabled" in texto and "daily_budget" not in texto
+    assert correr(campana({**base, "presupuesto_en": "conjunto", "presupuesto_centavos": 100,
+                           "tipo_presupuesto": "diario"})).get("is_error")
+    # CBO sin presupuesto: error
+    assert correr(campana({**base})).get("is_error")
+
+    conjunto = herramienta(tools, "meta_crear_conjunto").handler
+    c = {"cuenta": "777", "campana_id": "PRUEBA-campana-9", "optimization_goal": "LINK_CLICKS",
+         "segmentacion_json": '{"age_min": 18, "age_max": 22}', "inicio": "2026-12-01T00:00:00-0600"}
+    r = correr(conjunto({**c, "nombre": "CEFAT_A", "presupuesto_centavos": 1500, "tipo_presupuesto": "diario"}))
+    texto = r["content"][0]["text"]
+    assert not r.get("is_error") and '"daily_budget": 1500' in texto and '"advantage_audience": 1' in texto
+    # Segundo conjunto: la suma (15 + 15 = 30 USD) pasa el tope diario de 25
+    r = correr(conjunto({**c, "nombre": "CEFAT_B", "presupuesto_centavos": 1500, "tipo_presupuesto": "diario"}))
+    assert r.get("is_error") and "suma" in r["content"][0]["text"]
+    # Total sin fecha de fin: error
+    r = correr(conjunto({**c, "nombre": "CEFAT_C", "presupuesto_centavos": 1000, "tipo_presupuesto": "total"}))
+    assert r.get("is_error") and "fin" in r["content"][0]["text"]
+    # Límites estrictos si se piden
+    r = correr(conjunto({**c, "nombre": "CEFAT_D",
+                         "segmentacion_json": '{"targeting_automation": {"advantage_audience": 0}}'}))
+    assert '"advantage_audience": 0' in r["content"][0]["text"]
+
+    # Campaña real: suma con los conjuntos que ya existen en Meta
+    async def falso_get(ruta, params=None):
+        if ruta.endswith("/adsets"):
+            return {"data": [{"daily_budget": "2000"}]}
+        return {"account_id": "777", "name": "CEFAT_Real"}
+
+    monkeypatch.setattr(meta, "_get", falso_get)
+    r = correr(conjunto({**c, "campana_id": "55", "nombre": "CEFAT_E", "presupuesto_centavos": 600,
+                         "tipo_presupuesto": "diario"}))
+    assert r.get("is_error") and "20.00" in r["content"][0]["text"]
+    assert not correr(conjunto({**c, "campana_id": "55", "nombre": "CEFAT_F", "presupuesto_centavos": 500,
+                                "tipo_presupuesto": "diario"})).get("is_error")
+
+
 def test_monday_etiquetas_prohibidas():
     assert monday.valores_prohibidos({"color_mm7vt5cg": {"label": "Listo para montar"}})
     assert monday.valores_prohibidos({"color_mm7vqz13": {"index": 152}})
