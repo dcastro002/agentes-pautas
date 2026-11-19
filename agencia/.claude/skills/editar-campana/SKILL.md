@@ -20,7 +20,8 @@ Si no está claro cuál campaña o qué cambio, preguntar antes de leer nada má
 | Cambiar arte o copy de un anuncio | **El mismo anuncio (mismo ID).** El creativo no se edita: se crea uno nuevo con el conector y se asigna al anuncio existente con `scripts/asignar_creativo.py` (API de Meta directa; el conector no permite este cambio). Si no hay token o Meta lo rechaza: detenerse y ofrecer (a) hacerlo a mano en Ads Manager con los pasos de abajo o (b) anuncio nuevo + retirar el anterior, solo con aprobación |
 | Agregar un anuncio | Creativo nuevo → anuncio nuevo en el mismo conjunto, en pausa |
 | Quitar un anuncio | Pausar o archivar el anuncio. No se borran imágenes ni creativos |
-| Presupuesto o fechas | Solo si la persona lo pide explícitamente; mostrar el monto antes y después en MXN y en centavos |
+| Presupuesto | Solo si la persona lo pide explícitamente. **ABO:** se cambia en cada conjunto; **CBO:** en la campaña (la herramienta `meta_cambiar_presupuesto` detecta el nivel y rechaza el equivocado). Se conserva el tipo (diario o total). Mostrar en el plan, por conjunto o campaña: monto antes → después en la moneda de la cuenta y en centavos, y la suma de la campaña contra el tope de `Cuentas.md` |
+| Fechas | Solo si la persona lo pide explícitamente; mostrar antes y después |
 | Segmentación | Solo si la persona lo pide explícitamente; avisar que reinicia el aprendizaje |
 
 ## Google Ads (Red de Búsqueda)

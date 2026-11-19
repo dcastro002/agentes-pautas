@@ -214,6 +214,63 @@ def test_meta_abo_y_advantage(monkeypatch):
                                 "tipo_presupuesto": "diario"})).get("is_error")
 
 
+def test_meta_cambiar_presupuesto(monkeypatch):
+    _cuenta_compartida(monkeypatch)
+    # Campaña 50 ABO con conjuntos as1 (10 USD) y as2 (8 USD); campaña 60 CBO con conjunto as3; campaña ajena 70.
+    campanas = {"50": {"id": "50", "name": "CEFAT_ABO"}, "60": {"id": "60", "name": "CEFAT_CBO", "daily_budget": "2000"},
+                "70": {"id": "70", "name": "Azteca7_Box"}}
+    conjuntos = {"as1": ("50", {"daily_budget": "1000"}), "as2": ("50", {"daily_budget": "800"}),
+                 "as3": ("60", {}), "as4": ("70", {"daily_budget": "500"}), "as5": ("50", {"lifetime_budget": "9000"})}
+
+    async def falso_get(ruta, params=None):
+        campos = (params or {}).get("fields", "")
+        if ruta.endswith("/adsets"):
+            cid = ruta.split("/")[0]
+            campo = campos.split(",")[0]
+            return {"data": [d for c, d in conjuntos.values() if c == cid and campo in d]}
+        if ruta in conjuntos:
+            cid, presupuesto = conjuntos[ruta]
+            return {"id": ruta, "name": f"conj {ruta}", "status": "PAUSED", "account_id": "777", **presupuesto,
+                    "campaign": campanas[cid]}
+        if "campaign{" in campos:
+            raise RuntimeError("nonexisting field (campaign)")
+        return {"account_id": "777", "status": "ACTIVE", **campanas[ruta]}
+
+    monkeypatch.setattr(meta, "_get", falso_get)
+    ctx = Contexto(conv_id="t4", canal="C", thread_ts="1", usuario="U")
+    _, tools = meta.crear_servidor(ctx)
+    cambiar = herramienta(tools, "meta_cambiar_presupuesto").handler
+    # Sin aprobación: bloqueado
+    r = correr(cambiar({"objeto_id": "as1", "presupuesto_centavos": 1200}))
+    assert r.get("is_error") and "aprobación" in r["content"][0]["text"]
+
+    ctx.aprobado = True
+    # ABO: sube el conjunto; la suma (12 + 8 = 20) queda bajo el tope diario de 25
+    r = correr(cambiar({"objeto_id": "as1", "presupuesto_centavos": 1200}))
+    texto = r["content"][0]["text"]
+    assert not r.get("is_error") and '"nivel": "conjunto"' in texto and '"daily_budget": 1200' in texto
+    assert '"total_campana_despues": 20.0' in texto and "+20%" in texto
+    # La suma con el otro conjunto (18 + 8 = 26) pasa el tope
+    r = correr(cambiar({"objeto_id": "as1", "presupuesto_centavos": 1800}))
+    assert r.get("is_error") and "tope" in r["content"][0]["text"] and "8.00" in r["content"][0]["text"]
+    # Conjunto de campaña CBO: se cambia en la campaña
+    r = correr(cambiar({"objeto_id": "as3", "presupuesto_centavos": 1500}))
+    assert r.get("is_error") and "CBO" in r["content"][0]["text"] and "60" in r["content"][0]["text"]
+    # Campaña CBO: sí; campaña ABO: no tiene presupuesto propio
+    r = correr(cambiar({"objeto_id": "60", "presupuesto_centavos": 2400}))
+    assert not r.get("is_error") and '"nivel": "campana"' in r["content"][0]["text"]
+    assert correr(cambiar({"objeto_id": "60", "presupuesto_centavos": 2600})).get("is_error")
+    r = correr(cambiar({"objeto_id": "50", "presupuesto_centavos": 1000}))
+    assert r.get("is_error") and "ABO" in r["content"][0]["text"]
+    # No cambia el tipo de presupuesto; sin cambio no envía nada
+    r = correr(cambiar({"objeto_id": "as5", "presupuesto_centavos": 10000, "tipo_presupuesto": "diario"}))
+    assert r.get("is_error") and "total" in r["content"][0]["text"]
+    assert "sin_cambios" in correr(cambiar({"objeto_id": "as2", "presupuesto_centavos": 800}))["content"][0]["text"]
+    # Campaña ajena en cuenta compartida
+    r = correr(cambiar({"objeto_id": "as4", "presupuesto_centavos": 600}))
+    assert r.get("is_error") and "Azteca7_Box" in r["content"][0]["text"]
+
+
 def test_monday_etiquetas_prohibidas():
     assert monday.valores_prohibidos({"color_mm7vt5cg": {"label": "Listo para montar"}})
     assert monday.valores_prohibidos({"color_mm7vqz13": {"index": 152}})

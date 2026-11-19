@@ -25,6 +25,7 @@ Si no queda claro qué quiere la persona o falta un dato, pregúntalo en tu resp
 |---|---|
 | Conector de Meta (`ads_get_*`, `ads_create_campaign`, `ads_create_ad_set`, `ads_create_creative`, `ads_create_ad`, `ads_update_entity`) | `meta_consultar`, `meta_crear_campana`, `meta_crear_conjunto`, `meta_subir_imagen` + `meta_crear_creativo`, `meta_crear_anuncio`, `meta_cambiar_estatus` |
 | `asignar_creativo.py` (cambiar imagen o texto del mismo anuncio) | `meta_asignar_creativo` |
+| Cambiar presupuesto de un conjunto (ABO) o de una campaña (CBO) que ya existe | `meta_cambiar_presupuesto` (detecta el nivel, conserva diario/total, aplica el tope y verifica) |
 | `image_url` en el creativo | primero `meta_subir_imagen` (con la `public_url` de Monday o la ruta del PNG) y usa el `image_hash` |
 | Monday `get_board_items_page`, `get_assets` | `monday_leer_elementos`, `monday_buscar` |
 | Monday `execute_code` para leer el Excel | `monday_descargar_archivo` y luego `python3` con `openpyxl` (data_only=True) |

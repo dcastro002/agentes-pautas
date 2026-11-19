@@ -3,6 +3,8 @@
 Candados en código, no en instrucciones:
 - Nada se crea activo: campañas, conjuntos y anuncios se crean siempre en PAUSED.
 - No existe ninguna herramienta para activar. Cambiar estatus solo acepta PAUSED o ARCHIVED.
+- Cambiar presupuesto de algo existente respeta el nivel (conjunto en ABO, campaña en CBO), conserva el tipo,
+  no toca el estatus y vuelve a leer el objeto para verificar.
 - Solo cuentas publicitarias de META_CUENTAS_PERMITIDAS.
 - Tope de presupuesto por campaña y por cuenta (META_TOPES_POR_CUENTA), en la moneda de la cuenta. En ABO
   (presupuesto por conjunto) el tope se aplica a la suma de los conjuntos de la campaña.
@@ -464,6 +466,80 @@ def crear_servidor(ctx: Contexto):
         except Exception as e:
             return error(f"ERROR DE META: {e}")
 
+    @tool("meta_cambiar_presupuesto",
+          "Cambia el presupuesto de un conjunto (campaña ABO) o de una campaña (CBO) que YA existe. Detecta el nivel: "
+          "si la campaña es CBO el presupuesto se cambia en la campaña; si es ABO, en cada conjunto. Conserva el tipo "
+          "(diario o total) que ya tiene el objeto: Meta no permite cambiarlo. presupuesto_centavos es el monto NUEVO, "
+          "en centavos de la moneda de la cuenta. Aplica el tope de la cuenta (en ABO, a la suma de los conjuntos de la "
+          "campaña), no toca el estatus y verifica el resultado. Requiere aprobación humana vigente.",
+          esquema({"objeto_id": {"type": "string", "description": "ID del conjunto (ABO) o de la campaña (CBO)"},
+                   "presupuesto_centavos": {"type": "integer", "minimum": 1},
+                   "tipo_presupuesto": {"type": "string", "enum": ["diario", "total"],
+                                        "description": "Opcional: si se manda, debe coincidir con el tipo actual"}},
+                  ["objeto_id", "presupuesto_centavos"]))
+    async def meta_cambiar_presupuesto(a):
+        permitido, motivo = ctx.puede_escribir()
+        if not permitido:
+            return error(motivo)
+        objeto_id, nuevo = str(a["objeto_id"]).strip(), int(a["presupuesto_centavos"])
+        if nuevo <= 0:
+            return error("presupuesto_centavos debe ser mayor a 0.")
+        campos = "id,name,status,account_id,daily_budget,lifetime_budget"
+        try:
+            try:  # conjunto: trae su campaña anidada
+                obj = await _get(objeto_id, {"fields": campos + ",campaign{id,name,daily_budget,lifetime_budget}"})
+            except RuntimeError:  # una campaña no tiene el campo campaign
+                obj = await _get(objeto_id, {"fields": campos})
+            campana = obj.get("campaign")
+            nivel = "conjunto" if campana else "campana"
+            cuenta = obj.get("account_id", "")
+            if not _cuenta_permitida(cuenta):
+                return error(f"BLOQUEADO: el objeto {objeto_id} pertenece a una cuenta no permitida.")
+            bloqueo = bloqueo_por_prefijo(cuenta, (campana or {}).get("name") if campana else obj.get("name"))
+            if bloqueo:
+                return error(bloqueo)
+            diario, total = int(obj.get("daily_budget") or 0), int(obj.get("lifetime_budget") or 0)
+            if not diario and not total:
+                if nivel == "conjunto":
+                    return error("Este conjunto no tiene presupuesto propio: su campaña es CBO. Cambia el presupuesto "
+                                 f"de la campaña {campana.get('id')} con este mismo objeto_id.")
+                return error("Esta campaña no tiene presupuesto propio: es ABO. Cambia el presupuesto de cada conjunto "
+                             "(lístalos con meta_consultar en <campaña>/adsets).")
+            tipo = "diario" if diario else "total"
+            antes = diario or total
+            if a.get("tipo_presupuesto") and a["tipo_presupuesto"] != tipo:
+                return error(f"El objeto tiene presupuesto {tipo}; Meta no permite cambiarlo a "
+                             f"{a['tipo_presupuesto']}. Manda el monto nuevo como {tipo}.")
+            if nuevo == antes:
+                return ok({"sin_cambios": True, "nota": f"El presupuesto {tipo} ya es {antes / 100:,.2f}."})
+            otros = 0
+            if nivel == "conjunto":
+                otros = await presupuesto_de_conjuntos(campana["id"], tipo) - antes
+            bloqueo = bloqueo_por_tope(cuenta, otros + nuevo, tipo)
+            if bloqueo:
+                return error(bloqueo + (f" (suma con los demás conjuntos de la campaña: {otros / 100:,.2f})" if otros else ""))
+            campo = "daily_budget" if tipo == "diario" else "lifetime_budget"
+            resumen = {"objeto": objeto_id, "nivel": nivel, "nombre": obj.get("name"), "tipo": tipo,
+                       "antes": antes / 100, "despues": nuevo / 100,
+                       "cambio": f"{(nuevo - antes) / 100:+,.2f} ({(nuevo - antes) / antes:+.0%})",
+                       "estatus": obj.get("status")}
+            if nivel == "conjunto":
+                resumen["total_campana_despues"] = (otros + nuevo) / 100
+            if config.MODO_PRUEBA:
+                return simulado("presupuesto", {**resumen, campo: nuevo})
+            r = await _post(objeto_id, {campo: nuevo})
+            if not r.get("success", False):
+                return error(f"Respuesta inesperada de Meta: {r}")
+            despues = await _get(objeto_id, {"fields": campos})
+            if int(despues.get(campo) or 0) != nuevo:
+                return error(f"Meta respondió éxito pero el {campo} es {despues.get(campo)}, no {nuevo}.")
+            if despues.get("status") != obj.get("status"):
+                return error(f"ATENCIÓN: el estatus cambió de {obj.get('status')} a {despues.get('status')}.")
+            registrar(f"presupuesto {nivel}", f"{objeto_id} · {tipo} {antes / 100:,.2f} → {nuevo / 100:,.2f}")
+            return ok({**resumen, "nota": "Presupuesto actualizado y verificado; estatus sin cambios."})
+        except Exception as e:
+            return error(f"ERROR DE META: {e}")
+
     @tool("meta_cambiar_estatus",
           "Pausa o archiva una campaña, conjunto o anuncio. NO puede activar. Requiere aprobación humana vigente.",
           esquema({"objeto_id": {"type": "string"}, "estatus": {"type": "string", "enum": ["PAUSED", "ARCHIVED"]}},
@@ -487,5 +563,6 @@ def crear_servidor(ctx: Contexto):
             return error(f"ERROR DE META: {e}")
 
     herramientas = [meta_consultar, meta_crear_campana, meta_crear_conjunto, meta_subir_imagen,
-                    meta_crear_creativo, meta_crear_anuncio, meta_asignar_creativo, meta_cambiar_estatus]
+                    meta_crear_creativo, meta_crear_anuncio, meta_asignar_creativo, meta_cambiar_presupuesto,
+                    meta_cambiar_estatus]
     return create_sdk_mcp_server(name="meta", version="1.0.0", tools=herramientas), herramientas
