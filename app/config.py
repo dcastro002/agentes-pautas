@@ -86,6 +86,37 @@ else:
 META_CUENTAS_PERMITIDAS = [c.replace("act_", "") for c in _lista("META_CUENTAS_PERMITIDAS")]
 META_PAGINAS_PERMITIDAS = _lista("META_PAGINAS_PERMITIDAS")
 
+
+def _por_cuenta(nombre: str) -> dict[str, list[str]]:
+    """'cuenta:a:b,cuenta2:c' → {'cuenta': ['a', 'b'], 'cuenta2': ['c']} (sin act_ ni espacios)."""
+    salida: dict[str, list[str]] = {}
+    for item in _lista(nombre):
+        cuenta, _, resto = item.partition(":")
+        cuenta = cuenta.replace("act_", "").strip()
+        if cuenta and resto:
+            salida[cuenta] = [x.strip() for x in resto.split(":")]
+    return salida
+
+
+def _topes_meta() -> dict[str, tuple[float, float]]:
+    topes = {}
+    for cuenta, valores in _por_cuenta("META_TOPES_POR_CUENTA").items():
+        try:
+            diario = float(valores[0]) if valores and valores[0] else 0.0
+            total = float(valores[1]) if len(valores) > 1 and valores[1] else 0.0
+        except ValueError:
+            logging.getLogger("agentes").warning("META_TOPES_POR_CUENTA: valor no numérico para la cuenta %s", cuenta)
+            continue
+        topes[cuenta] = (diario, total)
+    return topes
+
+
+# Tope por campaña en la moneda de cada cuenta: "cuenta:diario:total". 0 = sin tope en ese tipo.
+META_TOPES_POR_CUENTA = _topes_meta()
+# Prefijos obligatorios del nombre de campaña en cuentas compartidas: "cuenta:CEFAT_|Cefat_"
+META_PREFIJOS_POR_CUENTA = {c: [p for p in "|".join(v).split("|") if p]
+                            for c, v in _por_cuenta("META_PREFIJOS_POR_CUENTA").items()}
+
 # --- Google Ads ------------------------------------------------------------
 GOOGLE_ADS_API_VERSION = (_env("GOOGLE_ADS_API_VERSION", "v26").lower().lstrip("v").split(".")[0]) or "26"
 GOOGLE_ADS_API_VERSION = f"v{GOOGLE_ADS_API_VERSION}" if GOOGLE_ADS_API_VERSION.isdigit() else "v26"

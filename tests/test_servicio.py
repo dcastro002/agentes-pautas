@@ -79,6 +79,95 @@ def test_meta_estatus_no_activa():
     assert r.get("is_error") and "PAUSED o ARCHIVED" in r["content"][0]["text"]
 
 
+def _cuenta_compartida(monkeypatch):
+    monkeypatch.setattr(config, "META_CUENTAS_PERMITIDAS", ["603185293355269", "777"])
+    monkeypatch.setattr(config, "META_TOPES_POR_CUENTA", {"777": (25.0, 300.0)})
+    monkeypatch.setattr(config, "META_PREFIJOS_POR_CUENTA", {"777": ["CEFAT_", "Cefat_"]})
+
+
+def test_meta_config_por_cuenta(monkeypatch):
+    monkeypatch.setenv("META_TOPES_POR_CUENTA", "act_777:25:300, 888:500, 999:x")
+    monkeypatch.setenv("META_PREFIJOS_POR_CUENTA", "777:CEFAT_|Cefat_")
+    assert config._topes_meta() == {"777": (25.0, 300.0), "888": (500.0, 0.0)}
+    assert {c: [p for p in "|".join(v).split("|") if p]
+            for c, v in config._por_cuenta("META_PREFIJOS_POR_CUENTA").items()} == {"777": ["CEFAT_", "Cefat_"]}
+
+
+def test_meta_tope_por_cuenta(monkeypatch):
+    _cuenta_compartida(monkeypatch)
+    ctx = Contexto(conv_id="t1", canal="C", thread_ts="1", usuario="U", aprobado=True)
+    _, tools = meta.crear_servidor(ctx)
+    crear = herramienta(tools, "meta_crear_campana").handler
+    base = {"cuenta": "act_777", "nombre": "CEFAT_Prueba", "objetivo": "OUTCOME_TRAFFIC"}
+    # 465 "MXN" metidos en una cuenta USD: bloqueado
+    r = correr(crear({**base, "presupuesto_centavos": 46500, "tipo_presupuesto": "diario"}))
+    assert r.get("is_error") and "tope" in r["content"][0]["text"]
+    r = correr(crear({**base, "presupuesto_centavos": 30001, "tipo_presupuesto": "total"}))
+    assert r.get("is_error") and "tope" in r["content"][0]["text"]
+    r = correr(crear({**base, "presupuesto_centavos": 1000, "tipo_presupuesto": "diario"}))
+    assert not r.get("is_error") and "modo_prueba" in r["content"][0]["text"]
+    # Cuenta sin tope configurado: sin cambio de comportamiento
+    r = correr(crear({**base, "cuenta": "603185293355269", "nombre": "x", "presupuesto_centavos": 10**7,
+                      "tipo_presupuesto": "diario"}))
+    assert not r.get("is_error")
+
+
+def test_meta_prefijo_en_cuenta_compartida(monkeypatch):
+    _cuenta_compartida(monkeypatch)
+    ctx = Contexto(conv_id="t2", canal="C", thread_ts="1", usuario="U", aprobado=True)
+    _, tools = meta.crear_servidor(ctx)
+    crear = herramienta(tools, "meta_crear_campana").handler
+    datos = {"cuenta": "777", "objetivo": "OUTCOME_TRAFFIC", "presupuesto_centavos": 1000, "tipo_presupuesto": "diario"}
+    r = correr(crear({**datos, "nombre": "[PRUEBA-AGENTE] CEFAT_Tráfico"}))
+    assert r.get("is_error") and "CEFAT_" in r["content"][0]["text"]
+    assert not correr(crear({**datos, "nombre": "CEFAT_Tráfico"})).get("is_error")
+
+    # Objetos existentes: se lee la campaña dueña (sin red)
+    campanas = {"10": ("777", "Azteca7_Box"), "11": ("777", "CEFAT_Tráfico"), "12": ("888", "CEFAT_Otra")}
+
+    async def falso_get(ruta, params=None):
+        campos = (params or {}).get("fields", "")
+        objeto = ruta.split("/")[0]
+        if objeto.startswith("ad"):  # anuncio/conjunto: campaña anidada
+            cuenta, nombre = campanas[objeto[2:]]
+            return {"account_id": cuenta, "campaign": {"name": nombre}, "creative": {"id": "c0"}, "status": "PAUSED"}
+        if "campaign{" in campos:
+            raise RuntimeError("nonexisting field (campaign)")
+        cuenta, nombre = campanas[objeto]
+        return {"account_id": cuenta, "name": nombre}
+
+    monkeypatch.setattr(meta, "_get", falso_get)
+    monkeypatch.setattr(config, "META_CUENTAS_PERMITIDAS", ["603185293355269", "777", "888"])
+    estatus = herramienta(tools, "meta_cambiar_estatus").handler
+    r = correr(estatus({"objeto_id": "10", "estatus": "PAUSED"}))  # campaña de TV Azteca
+    assert r.get("is_error") and "Azteca7_Box" in r["content"][0]["text"]
+    assert not correr(estatus({"objeto_id": "11", "estatus": "PAUSED"})).get("is_error")
+    r = correr(estatus({"objeto_id": "ad10", "estatus": "PAUSED"}))  # anuncio dentro de campaña ajena
+    assert r.get("is_error") and "BLOQUEADO" in r["content"][0]["text"]
+    # Cuenta sin prefijos: no se restringe
+    assert not correr(estatus({"objeto_id": "12", "estatus": "PAUSED"})).get("is_error")
+
+    conjunto = herramienta(tools, "meta_crear_conjunto").handler
+    base = {"cuenta": "777", "nombre": "CEFAT_Actuacion_18-22", "optimization_goal": "LINK_CLICKS",
+            "segmentacion_json": "{}", "inicio": "2026-12-01T00:00:00-0600"}
+    r = correr(conjunto({**base, "campana_id": "10"}))
+    assert r.get("is_error") and "BLOQUEADO" in r["content"][0]["text"]
+    assert not correr(conjunto({**base, "campana_id": "11"})).get("is_error")
+    assert not correr(conjunto({**base, "campana_id": "PRUEBA-campana-1"})).get("is_error")
+    r = correr(conjunto({**base, "campana_id": "12"}))  # campaña de otra cuenta
+    assert r.get("is_error") and "no pertenece" in r["content"][0]["text"]
+
+    anuncio = herramienta(tools, "meta_crear_anuncio").handler
+    r = correr(anuncio({"cuenta": "777", "conjunto_id": "ad10", "nombre": "x", "creativo_id": "2"}))
+    assert r.get("is_error") and "BLOQUEADO" in r["content"][0]["text"]
+    assert not correr(anuncio({"cuenta": "777", "conjunto_id": "ad11", "nombre": "x", "creativo_id": "2"})).get("is_error")
+
+    asignar = herramienta(tools, "meta_asignar_creativo").handler
+    r = correr(asignar({"anuncio_id": "ad10", "creativo_id": "c9"}))
+    assert r.get("is_error") and "BLOQUEADO" in r["content"][0]["text"]
+    assert not correr(asignar({"anuncio_id": "ad11", "creativo_id": "c9"})).get("is_error")
+
+
 def test_monday_etiquetas_prohibidas():
     assert monday.valores_prohibidos({"color_mm7vt5cg": {"label": "Listo para montar"}})
     assert monday.valores_prohibidos({"color_mm7vqz13": {"index": 152}})
