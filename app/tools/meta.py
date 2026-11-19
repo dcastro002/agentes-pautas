@@ -4,6 +4,8 @@ Candados en código, no en instrucciones:
 - Nada se crea activo: campañas, conjuntos y anuncios se crean siempre en PAUSED.
 - No existe ninguna herramienta para activar. Cambiar estatus solo acepta PAUSED o ARCHIVED.
 - Solo cuentas publicitarias de META_CUENTAS_PERMITIDAS.
+- Tope de presupuesto por campaña y por cuenta (META_TOPES_POR_CUENTA), en la moneda de la cuenta.
+- En cuentas compartidas (META_PREFIJOS_POR_CUENTA) solo se crean o tocan campañas con esos prefijos.
 - Toda escritura exige aprobación humana vigente (ctx.aprobado).
 - En MODO_PRUEBA las escrituras no se envían: se devuelve lo que se habría enviado.
 """
@@ -70,6 +72,31 @@ def _cuenta_permitida(cuenta: str) -> bool:
     return not config.META_CUENTAS_PERMITIDAS or _cuenta(cuenta) in config.META_CUENTAS_PERMITIDAS
 
 
+def _prefijos(cuenta: str) -> list[str]:
+    return config.META_PREFIJOS_POR_CUENTA.get(_cuenta(cuenta), [])
+
+
+def bloqueo_por_prefijo(cuenta: str, nombre_campana: str | None) -> str | None:
+    """En cuentas compartidas solo se tocan campañas con los prefijos de META_PREFIJOS_POR_CUENTA."""
+    prefijos = _prefijos(cuenta)
+    if prefijos and not any(str(nombre_campana or "").startswith(p) for p in prefijos):
+        return (f"BLOQUEADO: en la cuenta {_cuenta(cuenta)} solo se tocan campañas que empiezan con "
+                f"{' o '.join(prefijos)}; «{nombre_campana}» no cumple.")
+    return None
+
+
+def bloqueo_por_tope(cuenta: str, centavos: int, tipo: str) -> str | None:
+    """Tope por campaña de META_TOPES_POR_CUENTA, en la moneda de la cuenta. 0 o sin dato = sin tope."""
+    diario, total = config.META_TOPES_POR_CUENTA.get(_cuenta(cuenta), (0.0, 0.0))
+    tope = diario if tipo == "diario" else total
+    monto = int(centavos) / 100
+    if tope and monto > tope:
+        return (f"BLOQUEADO: presupuesto {tipo} de {monto:,.2f} arriba del tope de la cuenta {_cuenta(cuenta)} "
+                f"({tope:,.2f} en la moneda de la cuenta). Revisa la moneda en Cuentas.md: "
+                f"presupuesto_centavos va en centavos de esa moneda.")
+    return None
+
+
 async def _get(ruta: str, params: dict | None = None) -> dict:
     params = dict(params or {}, access_token=config.META_ACCESS_TOKEN)
     async with httpx.AsyncClient(timeout=90) as cli:
@@ -117,11 +144,32 @@ def crear_servidor(ctx: Contexto):
         return ok({"modo_prueba": True, "id": f"PRUEBA-{tipo}-{next(_contador)}",
                    "nota": "MODO_PRUEBA activo: no se envió nada a Meta.", "se_enviaria": enviado})
 
+    async def campana_de(objeto_id: str) -> tuple[str, str | None]:
+        """Cuenta y nombre de la campaña dueña de una campaña, conjunto o anuncio."""
+        try:
+            datos = await _get(objeto_id, {"fields": "account_id,campaign{name}"})
+            if datos.get("campaign"):
+                return datos.get("account_id", ""), datos["campaign"].get("name")
+        except Exception:  # noqa: BLE001 — una campaña no tiene el campo campaign
+            pass
+        datos = await _get(objeto_id, {"fields": "account_id,name"})
+        return datos.get("account_id", ""), datos.get("name")
+
     async def verificar_objeto(objeto_id: str) -> str | None:
-        datos = await _get(objeto_id, {"fields": "account_id"})
-        if not _cuenta_permitida(datos.get("account_id", "")):
+        cuenta, nombre_campana = await campana_de(objeto_id)
+        if not _cuenta_permitida(cuenta):
             return f"BLOQUEADO: el objeto {objeto_id} pertenece a una cuenta no permitida."
-        return None
+        return bloqueo_por_prefijo(cuenta, nombre_campana)
+
+    async def verificar_padre(cuenta: str, objeto_id: str) -> str | None:
+        """En cuentas con prefijos, el conjunto o la campaña donde se crea debe ser de una campaña permitida.
+        Los IDs simulados (MODO_PRUEBA) no existen en Meta y se omiten."""
+        if not _prefijos(cuenta) or str(objeto_id).startswith("PRUEBA-"):
+            return None
+        cuenta_real, nombre_campana = await campana_de(objeto_id)
+        if _cuenta(cuenta_real) != _cuenta(cuenta):
+            return f"BLOQUEADO: {objeto_id} no pertenece a la cuenta {_cuenta(cuenta)}."
+        return bloqueo_por_prefijo(cuenta, nombre_campana)
 
     @tool("meta_consultar",
           "Lee datos de Meta (solo lectura): una cuenta (act_<id>), campaña, conjunto, anuncio, creativo o página, "
@@ -172,6 +220,10 @@ def crear_servidor(ctx: Contexto):
             return error(motivo)
         if not _cuenta_permitida(a["cuenta"]):
             return error("BLOQUEADO: cuenta publicitaria no permitida.")
+        bloqueo = (bloqueo_por_prefijo(a["cuenta"], a["nombre"])
+                   or bloqueo_por_tope(a["cuenta"], a["presupuesto_centavos"], a["tipo_presupuesto"]))
+        if bloqueo:
+            return error(bloqueo)
         cats = cargar_json(a.get("categorias_especiales_json"), [])
         datos = {"name": a["nombre"], "objective": a["objetivo"], "status": "PAUSED",
                  "special_ad_categories": cats, "buying_type": "AUCTION",
@@ -208,6 +260,12 @@ def crear_servidor(ctx: Contexto):
             return error(motivo)
         if not _cuenta_permitida(a["cuenta"]):
             return error("BLOQUEADO: cuenta publicitaria no permitida.")
+        try:
+            bloqueo = await verificar_padre(a["cuenta"], a["campana_id"])
+        except Exception as e:
+            return error(f"ERROR DE META al verificar la campaña: {e}")
+        if bloqueo:
+            return error(bloqueo)
         datos = {"name": a["nombre"], "campaign_id": a["campana_id"], "status": "PAUSED",
                  "optimization_goal": a["optimization_goal"], "billing_event": a.get("billing_event") or "IMPRESSIONS",
                  "targeting": _con_advantage(cargar_json(a["segmentacion_json"], {})), "start_time": a["inicio"],
@@ -303,6 +361,12 @@ def crear_servidor(ctx: Contexto):
             return error(motivo)
         if not _cuenta_permitida(a["cuenta"]):
             return error("BLOQUEADO: cuenta publicitaria no permitida.")
+        try:
+            bloqueo = await verificar_padre(a["cuenta"], a["conjunto_id"])
+        except Exception as e:
+            return error(f"ERROR DE META al verificar el conjunto: {e}")
+        if bloqueo:
+            return error(bloqueo)
         datos = {"name": a["nombre"], "adset_id": a["conjunto_id"], "status": "PAUSED",
                  "creative": {"creative_id": a["creativo_id"]}}
         if config.MODO_PRUEBA:
@@ -323,11 +387,14 @@ def crear_servidor(ctx: Contexto):
         permitido, motivo = ctx.puede_escribir()
         if not permitido:
             return error(motivo)
-        campos = "id,name,status,effective_status,account_id,creative{id,name}"
+        campos = "id,name,status,effective_status,account_id,creative{id,name},campaign{name}"
         try:
             antes = await _get(a["anuncio_id"], {"fields": campos})
             if not _cuenta_permitida(antes.get("account_id", "")):
                 return error("BLOQUEADO: el anuncio pertenece a una cuenta no permitida.")
+            bloqueo = bloqueo_por_prefijo(antes.get("account_id", ""), (antes.get("campaign") or {}).get("name"))
+            if bloqueo:
+                return error(bloqueo)
             creativo_antes = (antes.get("creative") or {}).get("id")
             if creativo_antes == a["creativo_id"]:
                 return ok({"sin_cambios": True, "nota": "El anuncio ya usa ese creativo."})
