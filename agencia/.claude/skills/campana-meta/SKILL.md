@@ -23,32 +23,39 @@ Aplicar el paso 0 de la sección 3 de `CLAUDE.md`. Confirmar que existen el arch
 ### 2. Brief y datos de pauta
 Invocar al agente `estratega` con la solicitud, el cliente y el tipo de entregable "campaña Meta".
 
-Además del brief, reunir estos **datos de pauta**. Lo que no venga en la solicitud se pregunta en un solo mensaje; para los opcionales, proponer el valor por defecto entre paréntesis:
+Además del brief, reunir estos **datos de pauta**. Siguen la plantilla `_Plantillas/brief-pauta-meta.xlsx` (pestaña "Meta"; columna C dice quién llena cada campo). Lo que no venga en la solicitud se pregunta en un solo mensaje; para los opcionales, proponer el valor por defecto entre paréntesis. Las opciones de las listas son las de la plantilla: el script las valida.
 
 | Dato | Celda | Valores |
 |---|---|---|
-| Objetivo | B4 | Conversiones · Tráfico · Awareness · Alcance · Interacción · Ventas por Catálogo |
-| Evento (si es Conversiones) | K3 | Lead · Contact · CompleteRegistration · Schedule · SubmitApplication · Purchase · ViewContent |
-| Presupuesto en MXN y tipo | B8, K2 | Diario o Total |
-| Fechas de inicio y fin | B6, B7 | AAAA-MM-DD; inicio hoy o después |
-| Geografía | B5 | (México) |
-| Edad mínima y máxima | K5, K6 | (25 a 55) |
-| Género | K7 | (Todos) · Mujeres · Hombres |
-| Intereses | K8 | (Broad (sin intereses)) |
-| Ubicaciones | K9 | (Advantage+ (automáticas)) · Facebook e Instagram · Solo Facebook · Solo Instagram |
-| Categoría especial | K4 | (Ninguna) · Vivienda · Empleo · Crédito · Temas sociales o política |
-| URL de destino | D | Debe empezar con https:// |
-| Número de anuncios | filas 11-18 | (2) · máximo 8 |
+| Cuenta publicitaria | B14 | La de `Cuentas.md` del cliente (debe estar en la lista de la plantilla) |
+| Nombre de la campaña | B17 | `Cliente_Objetivo_Producto_MesAño`, con el prefijo de `Cuentas.md` si aplica |
+| Plataformas | B18 | (Facebook e Instagram) · Solo Facebook · Solo Instagram · Facebook, Instagram, Messenger y Audience Network |
+| Objetivo | B19 | Conversiones · Tráfico · Awareness · Interacción · Alcance (Form Lead Gen Nativo y Mensajes Whatsapp: el servidor todavía no los monta) |
+| Fecha y hora de fin | B20 | AAAA-MM-DD HH:MM. Sin fecha de inicio en la plantilla: la campaña inicia cuando una persona la activa |
+| Destino de la conversión | B23 | (Sitio web) · Formulario instantáneo · WhatsApp · Messenger · Llamadas · Sitio web y app |
+| Evento (si es Conversiones) | B24 | Lead · Purchase · Contact · CompleteRegistration · Schedule · SubmitApplication · ViewContent · AddToCart |
+| Conjuntos de anuncios | B26 | (1) y qué se prueba entre ellos |
+| Presupuesto por conjunto | B27 | Número en la **moneda de la cuenta** (`Cuentas.md`), **diario** salvo que se pida total. Por debajo del tope |
+| Geografía | B28 | País, estado, ciudad o radio |
+| Edad | B29 | Ej. 18–22 (con Advantage+ Audience es una sugerencia, no un límite) |
+| Pistas de segmentación | B30 | Del solicitante; si no hay, del ICP del contexto |
+| Ubicaciones | B31 | (Advantage+ (automáticas)) · Manuales: Feeds · Manuales: Stories y Reels · Manuales: Feeds, Stories y Reels |
+| Formato | B35 | Imagen única (Video y Carrusel: el servidor todavía no los monta) |
+| CTA | B47 | Lista de la plantilla (ej. Más información, Registrarte, Contactarnos) |
+| URL de destino | B48 | Debe empezar con https:// |
+| KPI principal | B51 | CPL · CPA · ROAS · CPC · CPM · Volumen de leads · Alcance |
 
-Revisar contra `Cuentas.md`: presupuesto diario mayor o igual al mínimo de la cuenta y por debajo del tope. Si no, avisar antes de seguir.
+**Defaults de la plantilla (aplicar salvo que la solicitud diga otra cosa):** categoría especial Ninguna · presupuesto **ABO** (por conjunto) · género Todos · **Advantage+ Audience** · segmentación y artes según el contexto del cliente · artes en **3 tamaños** (1:1, 4:5, 9:16) · **3 variantes de copy** por anuncio · todo se sube en pausa.
+
+Revisar contra `Cuentas.md`: presupuesto por conjunto × número de conjuntos por debajo del tope de la cuenta. Si no, avisar antes de seguir.
 
 **Punto de aprobación 1:** mostrar en pocas líneas objetivo, audiencia, mensaje clave, CTA, presupuesto, fechas y segmentación. Continuar solo con confirmación.
 
 ### 3. Copy
-Invocar al agente `redactor` con la ruta del brief. Pedir, por anuncio: texto principal (copy), título y CTA. El CTA debe ser uno de: Más información · Comprar ahora · Registrarte · Contactarnos · Enviar mensaje · Descargar · Reservar · Suscribirte · Solicitar hora · Ver más.
+Invocar al agente `redactor` con la ruta del brief y las instrucciones del solicitante (B43). Pedir **3 variantes** de texto principal (~125 caracteres visibles), de título (máximo 40) y de descripción (máximo 30). El CTA es uno de la lista de la plantilla (B47).
 
 ### 4. Artes
-Invocar al agente `disenador` con las rutas del brief y del copy, pidiendo **imagen final PNG 1080×1080 por anuncio** (formato "Imagen única"). Texto en imagen breve; el copy largo va en el anuncio, no en la imagen.
+Invocar al agente `disenador` con las rutas del brief y del copy, pidiendo cada concepto en **3 tamaños PNG**: 1:1 (1080×1080), 4:5 (1080×1350) y 9:16 (1080×1920), formato "Imagen única". Usa las instrucciones del solicitante (B37) y el texto dentro de la imagen (B38). Texto en imagen breve; el copy largo va en el anuncio.
 
 ### 5. Revisión de marca
 Invocar al agente `guardian-marca` con el copy, los PNG y el brief.
@@ -61,21 +68,21 @@ Invocar al agente `guardian-marca` con el copy, los PNG y el brief.
 ### 7. Registrar en Monday
 Invocar al agente `gestor-solicitudes` con las rutas del brief, el copy, los PNG, los datos de pauta y la aprobación.
 
-Formato del JSON que arma para el script:
+Formato del JSON que arma para `scripts/llenar_brief.py` (escribe la columna B de la plantilla; la sección 7, salida del agente, queda vacía para el montaje):
 ```json
 {
-  "cliente": "<B1, valor de Cuentas.md>",
-  "nombre": "<nombre de campaña, con el prefijo de Cuentas.md si aplica>",
-  "plataforma": "Meta", "objetivo": "Conversiones", "geo": "México",
-  "inicio": "AAAA-MM-DD", "fin": "AAAA-MM-DD", "presupuesto": 150,
-  "tipo_presupuesto": "Diario", "evento": "Lead", "categoria": "Ninguna",
-  "edad_min": 25, "edad_max": 55, "genero": "Todos",
-  "intereses": "Broad (sin intereses)", "ubicaciones": "Advantage+ (automáticas)",
-  "cuenta": "<K11, de Cuentas.md>", "pagina": "<K12, de Cuentas.md>", "pixel": "<K13, de Cuentas.md>",
-  "anuncios": [
-    {"copy": "...", "titulo": "...", "cta": "Más información",
-     "url": "https://...", "formato": "Imagen única", "archivo": "<nombre exacto del PNG>"}
-  ]
+  "cuenta": "<ID de Cuentas.md, sin act_>",
+  "nombre": "<B17, con el prefijo de Cuentas.md si aplica>",
+  "plataformas": "Facebook e Instagram", "objetivo": "Tráfico", "fin": "AAAA-MM-DD HH:MM",
+  "destino": "Sitio web", "evento": "<solo si es Conversiones>", "formulario_o_whatsapp": "<solo si aplica>",
+  "conjuntos": "1 conjunto abierto", "presupuesto_conjunto": 10,
+  "geo": "CDMX y Estado de México", "edad": "18–22",
+  "pistas_segmentacion": "...", "ubicaciones": "Advantage+ (automáticas)",
+  "segmentacion_final": "<la segmentación que se configurará, en palabras>",
+  "formato": "Imagen única", "carpeta_assets": "...", "instrucciones_artes": "...", "texto_imagen": "...",
+  "variantes": "1 concepto × 3 tamaños", "artes": ["<nombre exacto de cada PNG>"],
+  "instrucciones_copy": "...", "textos": ["...", "...", "..."], "titulos": ["...", "...", "..."],
+  "descripciones": ["...", "...", "..."], "cta": "Más información", "url": "https://...", "kpi": "CPC"
 }
 ```
 

@@ -1,96 +1,133 @@
 #!/usr/bin/env python3
-"""Llena la plantilla de brief de pauta (Excel) a partir de un JSON.
+"""Llena la plantilla de brief de Meta (Excel) a partir de un JSON.
 
 Uso:
   python3 llenar_brief.py <datos.json> <plantilla.xlsx> <salida.xlsx>
 
-- Respeta el formato de la plantilla: una pestaña, datos en B1-B8,
-  anuncios en las filas 11-18 y datos para el agente en K2-K13.
-- Valida cada campo contra las opciones que acepta el agente de pautas.
-- Cuenta, página y píxel (K11-K13) vienen del JSON (tomados de Cuentas.md)
-  y se escriben como valores.
+Plantilla: pestaña "Meta", formulario vertical (columna A = campo, B = valor).
+- Escribe solo la columna B de las filas de CELDAS; borra antes los valores de ejemplo.
+- Valida las listas desplegables leyendo las validaciones de la propia plantilla,
+  así el script sigue funcionando si alguien agrega opciones en el Excel.
+- La cuenta (B14) se elige de la lista de la plantilla buscando el ID de "cuenta".
+- Los textos, títulos y descripciones (3 variantes) van numerados, uno por línea.
+- La sección 7 (salida del agente) queda vacía: la llena el montaje.
 - Si algo no es válido, no escribe nada y sale con código 1.
 """
-import json, sys, datetime
+import datetime
+import json
+import sys
 
 try:
     import openpyxl
+    from openpyxl.styles import Alignment
 except ImportError:
     sys.exit("Falta openpyxl. Instálalo con: pip3 install --user openpyxl")
 
+HOJA = "Meta"
 CELDAS = {
-    "cliente": "B1", "nombre": "B2", "plataforma": "B3", "objetivo": "B4",
-    "geo": "B5", "inicio": "B6", "fin": "B7", "presupuesto": "B8",
-    "tipo_presupuesto": "K2", "evento": "K3", "categoria": "K4",
-    "edad_min": "K5", "edad_max": "K6", "genero": "K7", "intereses": "K8",
-    "ubicaciones": "K9", "instagram": "K10",
-    "cuenta": "K11", "pagina": "K12", "pixel": "K13",
+    "cuenta": "B14", "nombre": "B17", "plataformas": "B18", "objetivo": "B19", "fin": "B20",
+    "destino": "B23", "evento": "B24", "formulario_o_whatsapp": "B25", "conjuntos": "B26",
+    "presupuesto_conjunto": "B27", "geo": "B28", "edad": "B29", "pistas_segmentacion": "B30",
+    "ubicaciones": "B31", "segmentacion_final": "B32",
+    "formato": "B35", "carpeta_assets": "B36", "instrucciones_artes": "B37", "texto_imagen": "B38",
+    "variantes": "B39", "artes": "B40",
+    "instrucciones_copy": "B43", "textos": "B44", "titulos": "B45", "descripciones": "B46",
+    "cta": "B47", "url": "B48", "kpi": "B51",
 }
-COL_ANUNCIO = {"copy": "A", "titulo": "B", "cta": "C", "url": "D",
-               "formato": "G", "archivo": "H"}
-FILAS = range(11, 19)  # máximo 8 anuncios
+SALIDA = ["B54", "B55", "B56", "B57", "B58"]  # las llena el montaje
+LISTAS = ("textos", "titulos", "descripciones", "artes")
+OBLIGATORIOS = ["cuenta", "nombre", "plataformas", "objetivo", "destino", "presupuesto_conjunto", "geo", "edad",
+                "ubicaciones", "segmentacion_final", "formato", "artes", "textos", "titulos", "cta", "url"]
+MAX_TITULO, MAX_DESCRIPCION, TEXTO_VISIBLE = 40, 30, 125
 
-OPCIONES = {
-    "plataforma": ["Meta", "Instagram", "Facebook"],
-    "objetivo": ["Conversiones", "Tráfico", "Awareness", "Ventas por Catálogo",
-                 "Interacción", "Alcance"],
-    "tipo_presupuesto": ["Diario", "Total"],
-    "evento": ["Lead", "Contact", "CompleteRegistration", "Schedule",
-               "SubmitApplication", "Purchase", "ViewContent", "No aplica"],
-    "categoria": ["Ninguna", "Vivienda", "Empleo", "Crédito", "Temas sociales o política"],
-    "genero": ["Todos", "Mujeres", "Hombres"],
-    "ubicaciones": ["Advantage+ (automáticas)", "Facebook e Instagram",
-                    "Solo Facebook", "Solo Instagram"],
-    "cta": ["Más información", "Comprar ahora", "Registrarte", "Contactarnos",
-            "Enviar mensaje", "Descargar", "Reservar", "Suscribirte",
-            "Solicitar hora", "Ver más"],
-    "formato": ["Imagen única"],
-}
-OBLIGATORIOS = ["cliente", "nombre", "plataforma", "objetivo", "geo", "inicio", "fin",
-                "presupuesto", "tipo_presupuesto", "categoria", "cuenta", "pagina", "pixel"]
+
+def opciones_de(ws) -> dict[str, list[str]]:
+    """Opciones de cada lista desplegable de la plantilla: {"B19": [...], ...}."""
+    salida = {}
+    for dv in ws.data_validations.dataValidation:
+        if dv.type != "list" or not dv.formula1:
+            continue
+        formula = dv.formula1.strip()
+        if formula.startswith("="):
+            continue  # rangos con nombre: no se validan aquí
+        texto = "".join(p.strip('"') for p in formula.split('"&"'))
+        valores = [v.strip() for v in texto.strip('"').split(",") if v.strip()]
+        for rango in str(dv.sqref).split():
+            salida[rango.split(":")[0]] = valores
+    return salida
+
+
+def numerada(valores: list[str]) -> str:
+    return "\n".join(f"{i}. {v}" for i, v in enumerate(valores, 1)) if len(valores) > 1 else valores[0]
 
 
 def main(datos_p, plantilla_p, salida_p):
     d = json.load(open(datos_p, encoding="utf-8"))
-    errores = []
-
-    def opcion(campo, valor, donde):
-        if campo in OPCIONES and valor not in OPCIONES[campo]:
-            errores.append(f"{donde} = {valor!r} no es válido. Opciones: {OPCIONES[campo]}")
+    wb = openpyxl.load_workbook(plantilla_p)
+    if HOJA not in wb.sheetnames:
+        sys.exit(f'La plantilla no tiene la pestaña "{HOJA}".')
+    ws = wb[HOJA]
+    opciones = opciones_de(ws)
+    errores, avisos = [], []
 
     for k in OBLIGATORIOS:
-        if d.get(k) in (None, "", 0):
+        v = d.get(k)
+        if v in (None, "", 0, []):
             errores.append(f"Falta {k} ({CELDAS[k]})")
-    for k, celda in CELDAS.items():
-        if d.get(k) not in (None, ""):
-            opcion(k, d[k], f"{k} ({celda})")
-    if d.get("objetivo") == "Conversiones" and d.get("evento") in (None, "", "No aplica"):
-        errores.append("El objetivo es Conversiones: falta el evento (K3)")
-    for k in ("inicio", "fin"):
-        try:
-            if d.get(k):
-                datetime.datetime.strptime(d[k], "%Y-%m-%d")
-        except ValueError:
-            errores.append(f"{k} debe tener formato AAAA-MM-DD")
-    if d.get("inicio") and d.get("fin") and d["fin"] <= d["inicio"]:
-        errores.append("La fecha de fin debe ser posterior a la de inicio")
 
-    anuncios = d.get("anuncios") or []
-    if not anuncios:
-        errores.append("Falta al menos un anuncio")
-    if len(anuncios) > len(FILAS):
-        errores.append(f"Máximo {len(FILAS)} anuncios")
-    for i, a in enumerate(anuncios):
-        fila = FILAS[0] + i
-        for k, col in COL_ANUNCIO.items():
-            if not a.get(k):
-                errores.append(f"Anuncio {i+1}: falta {k} ({col}{fila})")
-        if a.get("cta"):
-            opcion("cta", a["cta"], f"Anuncio {i+1} cta (C{fila})")
-        if a.get("formato"):
-            opcion("formato", a["formato"], f"Anuncio {i+1} formato (G{fila})")
-        if a.get("url") and not str(a["url"]).startswith("https://"):
-            errores.append(f"Anuncio {i+1}: la URL debe empezar con https://")
+    # Cuenta: se toma la opción de la plantilla que contiene el ID
+    cuenta = str(d.get("cuenta") or "").replace("act_", "").strip()
+    valor_cuenta = None
+    if cuenta:
+        coincide = [o for o in opciones.get("B14", []) if cuenta in o.split()]
+        if len(coincide) == 1:
+            valor_cuenta = coincide[0]
+        else:
+            errores.append(f"La cuenta {cuenta} no está en la lista de la plantilla (B14). "
+                           "Agrégala a la plantilla antes de registrar.")
+
+    for k, celda in CELDAS.items():
+        v = d.get(k)
+        if k == "cuenta" or v in (None, "", []) or celda not in opciones:
+            continue
+        if v not in opciones[celda]:
+            errores.append(f"{k} ({celda}) = {v!r} no es válido. Opciones: {opciones[celda]}")
+
+    if d.get("objetivo") == "Conversiones" and not d.get("evento"):
+        errores.append("El objetivo es Conversiones: falta el evento (B24)")
+    if d.get("destino") in ("WhatsApp", "Formulario instantáneo") and not d.get("formulario_o_whatsapp"):
+        errores.append("El destino es WhatsApp o formulario: falta el ID o número (B25)")
+    try:
+        if d.get("presupuesto_conjunto") not in (None, "") and float(d["presupuesto_conjunto"]) <= 0:
+            errores.append("presupuesto_conjunto debe ser mayor a 0 (B27)")
+    except (TypeError, ValueError):
+        errores.append("presupuesto_conjunto debe ser un número (B27)")
+    fin = None
+    if d.get("fin"):
+        for formato in ("%Y-%m-%d %H:%M", "%Y-%m-%d"):
+            try:
+                fin = datetime.datetime.strptime(d["fin"], formato)
+                break
+            except ValueError:
+                pass
+        if not fin:
+            errores.append("fin debe tener formato AAAA-MM-DD o AAAA-MM-DD HH:MM (B20)")
+    if d.get("url") and not str(d["url"]).startswith("https://"):
+        errores.append("La URL de destino debe empezar con https:// (B48)")
+
+    for k in LISTAS:
+        v = d.get(k)
+        if v not in (None, "", []) and not (isinstance(v, list) and all(isinstance(x, str) and x.strip() for x in v)):
+            errores.append(f"{k} ({CELDAS[k]}) debe ser una lista de textos")
+    for t in d.get("titulos") or []:
+        if isinstance(t, str) and len(t) > MAX_TITULO:
+            errores.append(f"Título de {len(t)} caracteres (máximo {MAX_TITULO}): {t!r}")
+    for t in d.get("descripciones") or []:
+        if isinstance(t, str) and len(t) > MAX_DESCRIPCION:
+            errores.append(f"Descripción de {len(t)} caracteres (máximo {MAX_DESCRIPCION}): {t!r}")
+    for t in d.get("textos") or []:
+        if isinstance(t, str) and len(t) > TEXTO_VISIBLE:
+            avisos.append(f"Texto principal de {len(t)} caracteres: después de ~{TEXTO_VISIBLE} se corta en 'Ver más'")
 
     if errores:
         print("NO SE GENERÓ EL BRIEF:")
@@ -98,40 +135,33 @@ def main(datos_p, plantilla_p, salida_p):
             print(" -", e)
         sys.exit(1)
 
-    wb = openpyxl.load_workbook(plantilla_p)
-    ws = wb.worksheets[0]
-    for celda in CELDAS.values():
+    for celda in list(CELDAS.values()) + SALIDA:
         ws[celda].value = None
-    for fila in FILAS:
-        for col in "ABCDEFGH":
-            ws[f"{col}{fila}"].value = None
-
     for k, celda in CELDAS.items():
         v = d.get(k)
-        if v in (None, ""):
+        if v in (None, "", []):
             continue
-        if k in ("inicio", "fin"):
-            v = datetime.datetime.strptime(v, "%Y-%m-%d")
-            ws[celda].number_format = "yyyy-mm-dd"
         if k == "cuenta":
-            v = str(v)
+            v = valor_cuenta
+        elif k == "fin":
+            v = fin
+            ws[celda].number_format = "yyyy-mm-dd hh:mm" if fin.hour or fin.minute else "yyyy-mm-dd"
+        elif k in LISTAS:
+            v = numerada(v)
+            ws[celda].alignment = Alignment(wrap_text=True, vertical="top")
+        elif k == "presupuesto_conjunto":
+            v = float(v)
         ws[celda].value = v
-    for i, a in enumerate(anuncios):
-        fila = FILAS[0] + i
-        for k, col in COL_ANUNCIO.items():
-            ws[f"{col}{fila}"].value = a[k]
-
     wb.save(salida_p)
 
     # Verificar leyendo como lo hará el agente de pautas
-    chk = openpyxl.load_workbook(salida_p, data_only=True).worksheets[0]
+    chk = openpyxl.load_workbook(salida_p, data_only=True)[HOJA]
     print("Brief generado:", salida_p)
-    for c in ["B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "K2", "K3", "K4",
-              "K5", "K6", "K7", "K8", "K9", "K11", "K12", "K13"]:
-        print(f"  {c}: {chk[c].value}")
-    for i in range(len(anuncios)):
-        f = FILAS[0] + i
-        print(f"  Anuncio {i+1}: {chk[f'B{f}'].value} · {chk[f'C{f}'].value} · {chk[f'H{f}'].value}")
+    for k, celda in CELDAS.items():
+        if chk[celda].value not in (None, ""):
+            print(f"  {celda} {k}: {str(chk[celda].value).replace(chr(10), ' | ')}")
+    for a in avisos:
+        print("  AVISO:", a)
 
 
 if __name__ == "__main__":

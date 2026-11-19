@@ -55,9 +55,6 @@
 - **Definición de lead calificado:** la de `Estrategia.md` (sección 7). Mientras esté pendiente, los reportes salen sin esa métrica.
 
 ## Plantilla de brief de pauta
-- Archivo: `_Plantillas/brief-pauta-meta.xlsx` (una pestaña: "Meta  Tik Tok  Linkedin")
-- Valores fijos de la agencia en el brief:
-  - Cliente (B1): `Freelan Marketing`
-  - ID de cuenta publicitaria (K11): `603185293355269`
-  - Página de Facebook (K12): `Freelan Marketing`
-  - Píxel (K13): `Píxel de Freelan_México_2018`
+- Archivo: `_Plantillas/brief-pauta-meta.xlsx` (pestaña "Meta", formulario vertical: columna A campo, B valor, C quién lo llena)
+- La cuenta (B14) se elige de la lista de la plantilla por su ID: `603185293355269` (Freelan_México_2022)
+- Página y píxel no van en el brief: el montaje los toma de este archivo (sección Meta Ads)

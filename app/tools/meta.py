@@ -4,7 +4,8 @@ Candados en código, no en instrucciones:
 - Nada se crea activo: campañas, conjuntos y anuncios se crean siempre en PAUSED.
 - No existe ninguna herramienta para activar. Cambiar estatus solo acepta PAUSED o ARCHIVED.
 - Solo cuentas publicitarias de META_CUENTAS_PERMITIDAS.
-- Tope de presupuesto por campaña y por cuenta (META_TOPES_POR_CUENTA), en la moneda de la cuenta.
+- Tope de presupuesto por campaña y por cuenta (META_TOPES_POR_CUENTA), en la moneda de la cuenta. En ABO
+  (presupuesto por conjunto) el tope se aplica a la suma de los conjuntos de la campaña.
 - En cuentas compartidas (META_PREFIJOS_POR_CUENTA) solo se crean o tocan campañas con esos prefijos.
 - Toda escritura exige aprobación humana vigente (ctx.aprobado).
 - En MODO_PRUEBA las escrituras no se envían: se devuelve lo que se habría enviado.
@@ -52,7 +53,8 @@ async def verificar_conexion() -> dict:
 
 
 def _con_advantage(targeting: dict) -> dict:
-    """Meta exige targeting_automation.advantage_audience; por defecto 0 para respetar edad y género del brief."""
+    """Meta exige targeting_automation.advantage_audience. Por defecto 1 (Advantage+ Audience, regla del brief):
+    edad y género quedan como sugerencias. Para límites estrictos, el targeting debe traer advantage_audience=0."""
     if isinstance(targeting, dict):
         # "Todos los géneros" en Meta es omitir genders; [0] o [1, 2] se quitan.
         generos = targeting.get("genders")
@@ -60,7 +62,7 @@ def _con_advantage(targeting: dict) -> dict:
             targeting.pop("genders")
         auto = targeting.setdefault("targeting_automation", {})
         if isinstance(auto, dict):
-            auto.setdefault("advantage_audience", 0)
+            auto.setdefault("advantage_audience", 1)
     return targeting
 
 
@@ -105,7 +107,7 @@ async def _get(ruta: str, params: dict | None = None) -> dict:
 
 
 async def _post(ruta: str, datos: dict, archivos: dict | None = None) -> dict:
-    datos = {k: (json.dumps(v) if isinstance(v, (dict, list)) else v) for k, v in datos.items() if v not in (None, "")}
+    datos = {k: (json.dumps(v) if isinstance(v, (dict, list, bool)) else v) for k, v in datos.items() if v not in (None, "")}
     datos["access_token"] = config.META_ACCESS_TOKEN
     async with httpx.AsyncClient(timeout=120) as cli:
         r = await cli.post(f"{_base()}/{ruta}", data=datos, files=archivos)
@@ -161,6 +163,17 @@ def crear_servidor(ctx: Contexto):
             return f"BLOQUEADO: el objeto {objeto_id} pertenece a una cuenta no permitida."
         return bloqueo_por_prefijo(cuenta, nombre_campana)
 
+    simulados: dict[tuple[str, str], int] = {}  # presupuesto de conjuntos simulados por (campaña, tipo)
+
+    async def presupuesto_de_conjuntos(campana_id: str, tipo: str) -> int:
+        """Suma (centavos) del presupuesto del mismo tipo de los conjuntos que ya tiene la campaña.
+        Una campaña simulada (MODO_PRUEBA) no existe en Meta: suma 0."""
+        if str(campana_id).startswith("PRUEBA-"):
+            return simulados.get((campana_id, tipo), 0)
+        campo = "daily_budget" if tipo == "diario" else "lifetime_budget"
+        datos = await _get(f"{campana_id}/adsets", {"fields": campo, "limit": 200})
+        return sum(int(c.get(campo) or 0) for c in datos.get("data", []))
+
     async def verificar_padre(cuenta: str, objeto_id: str) -> str | None:
         """En cuentas con prefijos, el conjunto o la campaña donde se crea debe ser de una campaña permitida.
         Los IDs simulados (MODO_PRUEBA) no existen en Meta y se omiten."""
@@ -204,32 +217,44 @@ def crear_servidor(ctx: Contexto):
             return error(f"ERROR DE META: {e}")
 
     @tool("meta_crear_campana",
-          "Crea una campaña EN PAUSA con presupuesto de campaña (CBO). Requiere aprobación humana vigente.",
+          "Crea una campaña EN PAUSA. presupuesto_en='conjunto' (ABO, default del brief): la campaña va sin "
+          "presupuesto y cada conjunto lleva el suyo en meta_crear_conjunto. presupuesto_en='campana' (CBO): exige "
+          "presupuesto_centavos y tipo_presupuesto. Requiere aprobación humana vigente.",
           esquema({"cuenta": {"type": "string"}, "nombre": {"type": "string"},
                    "objetivo": {"type": "string", "enum": ["OUTCOME_LEADS", "OUTCOME_TRAFFIC", "OUTCOME_AWARENESS",
                                                             "OUTCOME_ENGAGEMENT", "OUTCOME_SALES"]},
+                   "presupuesto_en": {"type": "string", "enum": ["conjunto", "campana"], "default": "campana"},
                    "presupuesto_centavos": {"type": "integer", "minimum": 1},
                    "tipo_presupuesto": {"type": "string", "enum": ["diario", "total"]},
                    "categorias_especiales_json": {"type": "string", "description": "JSON, ej. [] o [\"HOUSING\"]"},
                    "pais_categoria": {"type": "string", "description": "Ej. MX, si hay categoría especial"},
                    "inicio": {"type": "string"}, "fin": {"type": "string"}},
-                  ["cuenta", "nombre", "objetivo", "presupuesto_centavos", "tipo_presupuesto"]))
+                  ["cuenta", "nombre", "objetivo"]))
     async def meta_crear_campana(a):
         permitido, motivo = ctx.puede_escribir()
         if not permitido:
             return error(motivo)
         if not _cuenta_permitida(a["cuenta"]):
             return error("BLOQUEADO: cuenta publicitaria no permitida.")
-        bloqueo = (bloqueo_por_prefijo(a["cuenta"], a["nombre"])
-                   or bloqueo_por_tope(a["cuenta"], a["presupuesto_centavos"], a["tipo_presupuesto"]))
+        abo = a.get("presupuesto_en") == "conjunto"
+        if abo and a.get("presupuesto_centavos"):
+            return error("Con presupuesto_en='conjunto' (ABO) la campaña no lleva presupuesto: va en cada conjunto.")
+        if not abo and (not a.get("presupuesto_centavos") or a.get("tipo_presupuesto") not in ("diario", "total")):
+            return error("Con presupuesto_en='campana' (CBO) faltan presupuesto_centavos y tipo_presupuesto.")
+        bloqueo = bloqueo_por_prefijo(a["cuenta"], a["nombre"])
+        if not bloqueo and not abo:
+            bloqueo = bloqueo_por_tope(a["cuenta"], a["presupuesto_centavos"], a["tipo_presupuesto"])
         if bloqueo:
             return error(bloqueo)
         cats = cargar_json(a.get("categorias_especiales_json"), [])
         datos = {"name": a["nombre"], "objective": a["objetivo"], "status": "PAUSED",
                  "special_ad_categories": cats, "buying_type": "AUCTION",
-                 "bid_strategy": "LOWEST_COST_WITHOUT_CAP",
-                 ("daily_budget" if a["tipo_presupuesto"] == "diario" else "lifetime_budget"): int(a["presupuesto_centavos"]),
                  "start_time": a.get("inicio"), "stop_time": a.get("fin")}
+        if abo:
+            datos["is_adset_budget_sharing_enabled"] = False
+        else:
+            datos["bid_strategy"] = "LOWEST_COST_WITHOUT_CAP"
+            datos["daily_budget" if a["tipo_presupuesto"] == "diario" else "lifetime_budget"] = int(a["presupuesto_centavos"])
         if cats:
             datos["special_ad_category_country"] = [a.get("pais_categoria") or "MX"]
         if config.MODO_PRUEBA:
@@ -244,9 +269,13 @@ def crear_servidor(ctx: Contexto):
     @tool("meta_crear_conjunto",
           "Crea un conjunto de anuncios EN PAUSA dentro de una campaña. 'segmentacion_json' es el targeting de Meta "
           "(geo_locations, age_min, age_max, genders, publisher_platforms…). Si no incluye targeting_automation, se envía "
-          "advantage_audience=0 (edad y género como límites reales). Requiere aprobación humana vigente.",
+          "advantage_audience=1 (Advantage+ Audience: edad y género como sugerencias); para límites estrictos manda "
+          "advantage_audience=0. En campañas ABO, presupuesto_centavos y tipo_presupuesto van aquí (el tope de la cuenta "
+          "se aplica a la suma de los conjuntos de la campaña). Requiere aprobación humana vigente.",
           esquema({"cuenta": {"type": "string"}, "campana_id": {"type": "string"}, "nombre": {"type": "string"},
                    "optimization_goal": {"type": "string"},
+                   "presupuesto_centavos": {"type": "integer", "minimum": 1},
+                   "tipo_presupuesto": {"type": "string", "enum": ["diario", "total"]},
                    "billing_event": {"type": "string", "default": "IMPRESSIONS"},
                    "segmentacion_json": {"type": "string"},
                    "inicio": {"type": "string", "description": "ISO 8601 con zona, ej. 2026-10-27T00:00:00-0600"},
@@ -266,14 +295,33 @@ def crear_servidor(ctx: Contexto):
             return error(f"ERROR DE META al verificar la campaña: {e}")
         if bloqueo:
             return error(bloqueo)
+        centavos, tipo = a.get("presupuesto_centavos"), a.get("tipo_presupuesto")
+        if centavos:
+            if tipo not in ("diario", "total"):
+                return error("Falta tipo_presupuesto (diario o total) para el presupuesto del conjunto.")
+            if tipo == "total" and not a.get("fin"):
+                return error("Un presupuesto total en el conjunto exige fecha de fin.")
+            try:
+                ya = await presupuesto_de_conjuntos(a["campana_id"], tipo)
+            except Exception as e:
+                return error(f"ERROR DE META al leer los conjuntos de la campaña: {e}")
+            bloqueo = bloqueo_por_tope(a["cuenta"], ya + int(centavos), tipo)
+            if bloqueo:
+                return error(bloqueo + (f" (suma con los conjuntos que ya tiene la campaña: {ya / 100:,.2f})" if ya else ""))
         datos = {"name": a["nombre"], "campaign_id": a["campana_id"], "status": "PAUSED",
                  "optimization_goal": a["optimization_goal"], "billing_event": a.get("billing_event") or "IMPRESSIONS",
                  "targeting": _con_advantage(cargar_json(a["segmentacion_json"], {})), "start_time": a["inicio"],
                  "end_time": a.get("fin"), "destination_type": a.get("destination_type")}
+        if centavos:
+            datos["daily_budget" if tipo == "diario" else "lifetime_budget"] = int(centavos)
+            datos["bid_strategy"] = "LOWEST_COST_WITHOUT_CAP"
         po = cargar_json(a.get("promoted_object_json"), None)
         if po:
             datos["promoted_object"] = po
         if config.MODO_PRUEBA:
+            if centavos:
+                clave = (a["campana_id"], tipo)
+                simulados[clave] = simulados.get(clave, 0) + int(centavos)
             return simulado("conjunto", datos)
         try:
             r = await _post(f"act_{_cuenta(a['cuenta'])}/adsets", datos)

@@ -24,10 +24,10 @@ Llevar una solicitud aprobada al gestor de proyectos, en el formato que espera e
 
 ## Proceso
 1. Verificar que exista aprobación humana registrada. Si no, detenerse.
-2. Armar el JSON de datos (ver formato en la skill `campana-meta`) con el brief, el copy y los artes. Cliente, cuenta, página y píxel se toman de los valores fijos del brief en `Cuentas.md`. El campo `archivo` de cada anuncio es el nombre exacto del PNG.
+2. Armar el JSON de datos (ver formato en la skill `campana-meta`) con el brief, el copy y los artes. La cuenta se toma de `Cuentas.md` del cliente. `artes` lleva el nombre exacto de cada PNG.
 3. Generar el Excel con `python3 .claude/skills/campana-meta/scripts/llenar_brief.py <datos.json> <plantilla> <salida.xlsx>`. Si el script reporta errores, detenerse y devolverlos; no corregir datos por cuenta propia.
 4. Buscar en el tablero si ya existe un elemento con el mismo nombre. Si existe, detenerse y reportar su ID.
-5. Crear el elemento con `create_item`: nombre = nombre de la campaña (B2), cliente, estatus inicial de `Cuentas.md`. No asignar etiquetas de cuenta que `Cuentas.md` prohíba.
+5. Crear el elemento con `create_item`: nombre = nombre de la campaña (B17), cliente, estatus inicial de `Cuentas.md`. No asignar etiquetas de cuenta que `Cuentas.md` prohíba.
 6. Adjuntar archivos, uno por uno: `get_asset_upload_url` → `curl -i -X PUT "<upload_url>" -H "Content-Type: <tipo>" --data-binary @<archivo>` (guardar el encabezado ETag) → `finalize_asset_upload` con la columna correspondiente:
    - Brief Excel → columna Brief (`application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`).
    - Cada arte → columna Artes (`image/png`).
@@ -56,5 +56,5 @@ Archivo `_Entregables/<cliente>/<AAAA-MM>/<AAAA-MM-DD>_campana_<tema>_solicitud.
 
 ## Criterios de calidad
 - El Excel pasa la validación del script sin errores.
-- El nombre de cada arte en la columna H coincide exactamente con el archivo adjunto.
+- Cada nombre de la lista de artes (B40) coincide exactamente con un archivo adjunto en la columna Artes.
 - El elemento queda en el estatus inicial, con todos los archivos adjuntos y verificado.
